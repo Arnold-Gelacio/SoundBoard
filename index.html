@@ -173,6 +173,7 @@
       <div class="controls">
         <div class="vol-row">VOL <input id="vol" type="range" min="0" max="100" value="80"></div>
         <button id="stopAllBtn">Stop all</button>
+        <button id="driveImportBtn" disabled title="Loading Google Drive…">Import from Drive</button>
         <button id="importBtn" class="btn-primary">+ Import sounds</button>
       </div>
     </header>
@@ -180,21 +181,24 @@
     <div id="gridWrap">
       <div id="emptyState" class="empty-state">
         <h3>No sounds yet on this board</h3>
-        <p>Drag audio files here, or import from your device. They'll show up for the whole group.</p>
+        <p>Drag audio or MP4 files here, import from your device, or pull them straight from Google Drive.</p>
         <button id="importBtn2" class="btn-primary">+ Import sounds</button>
+        <button id="driveImportBtn2" disabled title="Loading Google Drive…">Import from Drive</button>
       </div>
       <div id="grid" style="display:none;"></div>
     </div>
 
     <footer>
-      Number keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> trigger the first 10 pads · double‑click a name to rename · hover a pad to delete it · sounds are shared with everyone using the same group code
+      Number keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> trigger the first 10 pads · double‑click a name to rename · hover a pad to delete it · supports audio files and MP4 · import from your device or straight from Google Drive · sounds are shared with everyone using the same group code
     </footer>
   </main>
 </div>
 
-<input type="file" id="fileInput" accept="audio/*" multiple style="display:none">
+<input type="file" id="fileInput" accept="audio/*,video/mp4,.mp4" multiple style="display:none">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 <script>
   /* ============================================================
      CONFIG — fill these in from your Supabase project settings
@@ -204,6 +208,11 @@
   const SUPABASE_URL = 'https://txtgeumrmzktclxowkzg.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_Bd1tI_CvlSH6o2gTZ8XKhw_9ltX0k3D';
   const BUCKET = 'sounds';
+
+  // Google Cloud Console → APIs & Services → Credentials.
+  // Needs the Drive API and Picker API enabled on the project.
+  const GOOGLE_CLIENT_ID = '911839976579-cafbnjmafen4lg1buui9mtsvfkebp6dr.apps.googleusercontent.com';
+  const GOOGLE_API_KEY = 'AIzaSyDiFG9JbAyNEScaPbbz3_x3Nyj0BiNL9wk';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -453,7 +462,11 @@
   }
 
   async function addFiles(fileList){
-    const files = Array.from(fileList).filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name));
+    const files = Array.from(fileList).filter(f =>
+      f.type.startsWith('audio/') ||
+      f.type === 'video/mp4' ||
+      /\.(mp3|wav|ogg|m4a|flac|aac|mp4)$/i.test(f.name)
+    );
     let order = pads.length;
     for(const file of files){
       const type = extFromName(file.name);
@@ -551,6 +564,78 @@
 
     refreshEmptyState();
   }
+
+  /* ---------- google drive import ---------- */
+  let gapiInited = false, gisInited = false, tokenClient = null, driveAccessToken = null;
+
+  function gapiLoaded(){
+    gapi.load('picker', () => { gapiInited = true; maybeEnableDriveButtons(); });
+  }
+  function gisLoaded(){
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.readonly',
+      callback: '', // set per-request below
+    });
+    gisInited = true;
+    maybeEnableDriveButtons();
+  }
+  function maybeEnableDriveButtons(){
+    if(!gapiInited || !gisInited) return;
+    ['driveImportBtn', 'driveImportBtn2'].forEach(id => {
+      const btn = document.getElementById(id);
+      if(btn){ btn.disabled = false; btn.title = ''; }
+    });
+  }
+
+  function openDrivePicker(){
+    if(!tokenClient){ alert('Google Drive is still loading — try again in a second.'); return; }
+    tokenClient.callback = async (resp) => {
+      if(resp.error){ console.error(resp); return; }
+      driveAccessToken = resp.access_token;
+      showDrivePicker();
+    };
+    tokenClient.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
+  }
+
+  function showDrivePicker(){
+    const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+      .setMimeTypes('audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/flac,audio/aac,video/mp4')
+      .setSelectFolderEnabled(false)
+      .setIncludeFolders(false);
+    const picker = new google.picker.PickerBuilder()
+      .setOAuthToken(driveAccessToken)
+      .setDeveloperKey(GOOGLE_API_KEY)
+      .addView(view)
+      .setCallback(handleDrivePicked)
+      .build();
+    picker.setVisible(true);
+  }
+
+  async function handleDrivePicked(data){
+    if(data.action !== google.picker.Action.PICKED) return;
+    for(const doc of data.docs){
+      await importDriveFile(doc.id, doc.name, doc.mimeType);
+    }
+  }
+
+  async function importDriveFile(fileId, fileName, mimeType){
+    try{
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${driveAccessToken}` }
+      });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const file = new File([blob], fileName, { type: mimeType || blob.type });
+      await addFiles([file]);
+    } catch(err){
+      console.error('Drive import failed', err);
+      alert(`Couldn't import "${fileName}" from Drive: ${err.message}`);
+    }
+  }
+
+  document.getElementById('driveImportBtn').addEventListener('click', openDrivePicker);
+  document.getElementById('driveImportBtn2').addEventListener('click', openDrivePicker);
 
   /* ---------- realtime: pick up changes from other members ---------- */
   let channel = null;
