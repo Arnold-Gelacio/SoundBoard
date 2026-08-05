@@ -172,7 +172,14 @@
   .pad .led{ position:absolute; top: 13px; right: 13px; width: 7px; height:7px; border-radius:50%; background: var(--line); box-shadow: inset 0 1px 1px #00000060; transition: all .15s; }
   .pad.playing .led{ background: var(--amber); box-shadow: 0 0 8px 2px var(--amber-glow); animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
-  .progress{ position:absolute; left:0; bottom:0; height: 3px; width: 0%; background: var(--amber); box-shadow: 0 0 6px 1px var(--amber-glow); transition: width .05s linear; }
+  .progress-track{ position:absolute; left:0; right:0; bottom:0; height: 16px; cursor: pointer; z-index: 2; touch-action: none; }
+  .progress-track::before{ content:''; position:absolute; left:0; right:0; bottom:6px; height:3px; border-radius:2px; background: var(--line); opacity:0; transition: opacity .12s; }
+  .progress-track:hover::before, .progress-track.seeking::before{ opacity:.7; }
+  .pad.loading .progress-track{ pointer-events:none; cursor:default; }
+  .progress{ position:absolute; left:0; bottom:6px; height: 3px; width: 0%; border-radius:2px; background: var(--amber); box-shadow: 0 0 6px 1px var(--amber-glow); transition: width .05s linear, height .1s; pointer-events:none; }
+  .progress-track:hover .progress, .progress-track.seeking .progress{ height: 5px; }
+  .progress::after{ content:''; position:absolute; right:-4px; top:50%; width:8px; height:8px; border-radius:50%; background: var(--amber); transform: translateY(-50%) scale(0); box-shadow: 0 0 4px 1px var(--amber-glow); transition: transform .1s; }
+  .progress-track:hover .progress::after, .progress-track.seeking .progress::after{ transform: translateY(-50%) scale(1); }
   .pad.playing{ border-color: var(--amber-dim); box-shadow: 0 0 0 1px #f0993f33, inset 0 -10px 18px -12px #00000070; }
   .pad .timestamp{ position:absolute; bottom:9px; right:11px; font-family: var(--font-mono); font-size:10px; letter-spacing:.03em; color: var(--ink-faint); pointer-events:none; font-variant-numeric: tabular-nums; }
   .pad.playing .timestamp{ color: var(--amber); }
@@ -555,6 +562,31 @@
     ts.textContent = formatTime(pad.audio.currentTime) + ' / ' + (isFinite(dur) && dur > 0 ? formatTime(dur) : '--:--');
   }
 
+  function attachSeekHandlers(trackEl, pad){
+    if(!trackEl) return;
+    let dragging = false;
+    const seekTo = (clientX) => {
+      const dur = pad.audio && pad.audio.duration;
+      if(!pad.audio || !isFinite(dur) || dur <= 0) return;
+      const rect = trackEl.getBoundingClientRect();
+      const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+      pad.audio.currentTime = frac * dur;
+      updateProgress(pad.id);
+      updateTimestamp(pad.id);
+    };
+    trackEl.addEventListener('pointerdown', (e) => {
+      if(!pad.audio) return;
+      dragging = true;
+      trackEl.classList.add('seeking');
+      trackEl.setPointerCapture(e.pointerId);
+      seekTo(e.clientX);
+    });
+    trackEl.addEventListener('pointermove', (e) => { if(dragging) seekTo(e.clientX); });
+    const endDrag = () => { dragging = false; trackEl.classList.remove('seeking'); };
+    trackEl.addEventListener('pointerup', endDrag);
+    trackEl.addEventListener('pointercancel', endDrag);
+  }
+
   function triggerPad(pad){
     if(!pad.audio) return; // still loading its signed URL
     if(!pad.audio.paused){
@@ -644,12 +676,13 @@
         <div class="name" contenteditable="false" spellcheck="false">${escapeHtml(pad.name)}</div>
         <div class="meta"><span class="meta-type">${pad.type}</span></div>
         <span class="timestamp">0:00 / --:--</span>
-        <div class="progress"></div>
+        <div class="progress-track"><div class="progress"></div></div>
       `;
       el.addEventListener('click', (e) => {
-        if(e.target.closest('.remove-btn') || el.querySelector('.name').isContentEditable) return;
+        if(e.target.closest('.remove-btn') || e.target.closest('.progress-track') || el.querySelector('.name').isContentEditable) return;
         triggerPad(pad);
       });
+      attachSeekHandlers(el.querySelector('.progress-track'), pad);
       el.querySelector('.remove-btn').addEventListener('click', (e) => { e.stopPropagation(); removePad(pad.id); });
       const nameEl = el.querySelector('.name');
       nameEl.addEventListener('dblclick', (e) => {
