@@ -54,6 +54,36 @@ header h1{font-size:44px;margin:4px 0}header p{margin:0;color:var(--dim);font-si
 .drag{outline:2px dashed var(--amber);outline-offset:-10px}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--raised);border:1px solid var(--amber);padding:10px 18px;border-radius:10px;font-size:13px;display:none;z-index:20}
 footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;line-height:1.7}
+#grid{grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
+.pad{overflow:hidden;gap:6px}
+.pad .media{position:absolute;inset:0;background:#000}
+.pad .media video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.pad .shade{display:none;position:absolute;inset:0;background:linear-gradient(rgba(10,7,4,.6),transparent 40%,rgba(10,7,4,.88));pointer-events:none}
+.pad.hasvid .shade{display:block}.pad.hasvid .n{text-shadow:0 1px 6px #000}
+.z{position:relative;z-index:2}
+.top{display:flex;justify-content:space-between}
+.pad .t{font:11px var(--mono);color:var(--dim)}.pad.play .t{color:var(--amber)}
+.pad .bar{height:14px;display:flex;align-items:center;cursor:pointer}
+.pad .bar::before{content:'';position:absolute;left:0;right:0;height:4px;background:rgba(255,255,255,.14);border-radius:2px}
+.pad .bar i{position:relative;display:block;height:4px;width:0;background:var(--amber);border-radius:2px}
+.pad .acts{position:absolute;top:8px;right:8px;z-index:3;display:flex;gap:4px;opacity:0}.pad:hover .acts{opacity:1}
+.pad .acts button{position:static;opacity:1;padding:2px 8px;background:rgba(18,14,9,.85)}.pad .acts .d{color:var(--rose)}
+#monoBtn.on{border-color:var(--amber);color:var(--amber)}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:30;align-items:center;justify-content:center;padding:16px}.modal.open{display:flex}
+.mcard{width:100%;max-width:480px;max-height:96vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px}
+.mcard h2{font:900 26px var(--disp);text-transform:uppercase;margin:0 0 12px}
+.mcard input[type=text]{width:100%;padding:9px 10px;background:#0b0806;border:1px solid var(--line);border-radius:8px;color:var(--ink);font:500 14px var(--mono)}
+.mcard input[type=range]{width:100%;margin:6px 0}
+.tmvid{width:100%;max-height:230px;background:#000;border-radius:10px;margin-bottom:10px;display:block}
+.strip{position:relative;height:10px;background:var(--raised);border-radius:5px;margin-top:10px}
+.strip i{position:absolute;top:0;bottom:0;background:var(--amber);opacity:.55;border-radius:5px}
+.strip b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+.mrow{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0;font:12px var(--mono);color:var(--dim)}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.mgrid label{font:11px var(--mono);color:var(--faint);letter-spacing:.15em;text-transform:uppercase;display:flex;flex-direction:column;gap:6px}
+.mgrid button{font-size:12px;padding:6px}
+.mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.mbtns .sp{flex:1}
+.mhint{font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5}
 @media(max-width:720px){.app{flex-direction:column}.side{width:100%;height:auto;position:static;border:none;border-bottom:1px solid var(--line)}}
 </style>
 </head>
@@ -87,10 +117,11 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
   <main class="main" id="main">
     <header>
       <div><div><span class="dot"></span><span class="eyebrow">Padboard</span></div>
-        <h1 id="bTitle">Board</h1><p>Click a pad to fire it. Shared with everyone in the group.</p></div>
+        <h1 id="bTitle">Board</h1><p>Click a pad to play it, click again to stop. Drag a pad's bar to jump around. Shared with everyone in the group.</p></div>
       <div class="ctl">
         <label class="vol">VOL <input id="vol" type="range" min="0" max="100" value="80"></label>
         <button id="loopBtn">↻ Loop</button>
+        <button id="monoBtn" title="Only one pad plays at a time">◉ Solo</button>
         <button id="stopBtn">Stop all</button>
         <button id="driveBtn">Import from Drive</button>
         <button id="importBtn" class="primary">+ Import sounds</button>
@@ -98,10 +129,24 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
     </header>
     <div class="empty" id="empty"><h3>No sounds yet on this board</h3><p>Drag audio or MP4 files here, or use Import.</p></div>
     <div id="grid" style="display:none"></div>
-    <footer>Keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> fire the first 10 pads · double-click a name to rename · hover a pad to delete · everything syncs live to the group</footer>
+    <footer>Keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> fire the first 10 pads · hover a pad for ✂ edit (rename, start/end) and delete · <kbd>Shift</kbd>+click restarts · <kbd>Space</kbd> stops all · everything syncs live to the group</footer>
   </main>
 </div>
 <input type="file" id="file" accept="audio/*,video/mp4,.mp4" multiple hidden>
+<div class="modal" id="modal"><div class="mcard">
+  <h2>Edit pad</h2>
+  <input type="text" id="tmName" placeholder="Name">
+  <div id="tmMedia" style="margin-top:12px"></div>
+  <div class="strip"><i id="tmSel"></i><b id="tmHead"></b></div>
+  <input type="range" id="tmSeek" min="0" max="1" step="0.01" value="0">
+  <div class="mrow"><button id="tmPlay">▶ Preview</button><span id="tmPos">0:00.0 / 0:00.0</span></div>
+  <div class="mgrid">
+    <label>Start<input type="text" id="tmStart"><button id="tmSetStart">Set from playhead</button></label>
+    <label>End<input type="text" id="tmEnd"><button id="tmSetEnd">Set from playhead</button></label>
+  </div>
+  <div class="mbtns"><button id="tmReset">Reset trim</button><span class="sp"></span><button id="tmCancel">Cancel</button><button class="primary" id="tmSave">Save</button></div>
+  <div class="mhint">Drag the slider to find the moment, then set it as start or end. You can also type a time like 1:23.5. Pads play only the trimmed section.</div>
+</div></div>
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -121,7 +166,6 @@ const toast = (m, ms = 2500) => { const t = $('toast'); t.textContent = m; t.sty
 /* ---------- state ---------- */
 let group = null, boards = [], sounds = [], activeBoard = null, channel = null;
 const urls = new Map();              // storage_path -> signed url
-const audios = new Map();            // sound id -> {el, url}
 let loop = localStorage.getItem('padboard_loop') === '1';
 
 function editable(el, save) {
@@ -241,22 +285,80 @@ $('newBoardBtn').onclick = async () => {
 };
 
 /* ---------- pads ---------- */
+/* OPTIONAL — to share trim points with the whole group, run once in Supabase → SQL editor:
+   alter table public.sounds add column if not exists start_sec double precision, add column if not exists end_sec double precision;
+   Without it, trims are still saved, but only on this device. */
 const vol = () => $('vol').value / 100;
-function audioFor(s) {
-  const url = urls.get(s.storage_path); let a = audios.get(s.id);
-  if (!a || a.url !== url) {
-    const el = new Audio(url); el.preload = 'auto';
-    el.onended = el.onpause = () => document.querySelector(`[data-id="${s.id}"]`)?.classList.remove('play');
-    a = { el, url }; audios.set(s.id, a);
+const media = new Map(), playing = new Set();
+let mono = localStorage.getItem('padboard_mono') === '1', raf = 0;
+const byId = id => sounds.find(x => x.id === id), padEl = id => document.querySelector(`.pad[data-id="${id}"]`);
+const isVideo = s => /\.mp4$/i.test(s.storage_path);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fmt = t => { t = Math.max(0, t || 0); return Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0'); };
+const localTrims = () => { try { return JSON.parse(localStorage.getItem('padboard_trims') || '{}'); } catch { return {}; } };
+function getTrim(s) {
+  if (s.start_sec != null || s.end_sec != null) return { start: s.start_sec || 0, end: s.end_sec };
+  const l = localTrims()[s.id]; return l ? { start: l.start || 0, end: l.end } : { start: 0, end: null };
+}
+function rangeOf(s) {
+  const el = media.get(s.id)?.el, dur = el && isFinite(el.duration) ? el.duration : null, t = getTrim(s), start = clamp(t.start || 0, 0, dur ?? 1e9);
+  return { start, end: t.end && t.end > start ? (dur ? Math.min(t.end, dur) : t.end) : dur, dur };
+}
+function mediaFor(s) {
+  const url = urls.get(s.storage_path); if (!url) return null;
+  let m = media.get(s.id);
+  if (!m || m.url !== url) {
+    if (m) m.el.pause();
+    const vid = isVideo(s), el = document.createElement(vid ? 'video' : 'audio'), id = s.id;
+    el.preload = 'metadata'; if (vid) { el.playsInline = true; el.disablePictureInPicture = true; }
+    el.src = vid ? url + '#t=0.1' : url;
+    el.onloadedmetadata = () => { const x = byId(id); if (x && !playing.has(id)) el.currentTime = rangeOf(x).start; paint(id); };
+    el.onended = () => { const x = byId(id); if (loop && x) { el.currentTime = rangeOf(x).start; el.play(); } else stopSound(id); };
+    el.onpause = () => { if (el.paused && !el.ended && playing.has(id)) setPlaying(id, false); };
+    m = { el, url, vid }; media.set(s.id, m);
   }
-  return a.el;
+  return m;
 }
-function fire(s) {
-  if (!urls.has(s.storage_path)) return toast('Still loading that sound…');
-  const el = audioFor(s); el.loop = loop; el.volume = vol(); el.currentTime = 0;
-  el.play().then(() => document.querySelector(`[data-id="${s.id}"]`)?.classList.add('play')).catch(() => {});
+function paint(id) {
+  const s = byId(id), pad = padEl(id), m = media.get(id); if (!s || !pad || !m) return;
+  const r = rangeOf(s), len = r.end ? r.end - r.start : 0, on = playing.has(id), t = on ? clamp(m.el.currentTime - r.start, 0, len) : 0;
+  pad.querySelector('.bar i').style.width = (len ? t / len * 100 : 0) + '%';
+  pad.querySelector('.t').textContent = len ? (on ? fmt(t) + ' / ' : '') + fmt(len) : '–';
 }
-function stopAll() { audios.forEach(a => { a.el.pause(); a.el.currentTime = 0; }); }
+function setPlaying(id, on) {
+  on ? playing.add(id) : playing.delete(id);
+  padEl(id)?.classList.toggle('play', on);
+  if (on) { if (!raf) raf = requestAnimationFrame(tick); } else paint(id);
+}
+function tick() {
+  raf = 0;
+  [...playing].forEach(id => {
+    const s = byId(id), m = media.get(id); if (!s || !m) return playing.delete(id);
+    const r = rangeOf(s);
+    if (r.end && m.el.currentTime >= r.end - 0.03) { if (loop) m.el.currentTime = r.start; else return stopSound(id); }
+    paint(id);
+  });
+  if (playing.size) raf = requestAnimationFrame(tick);
+}
+function stopSound(id) {
+  const m = media.get(id), s = byId(id); if (!m) return;
+  m.el.pause(); m.el.currentTime = s ? rangeOf(s).start : 0; setPlaying(id, false);
+}
+function stopAll(except) { [...playing].forEach(id => id !== except && stopSound(id)); }
+function fire(s, restart) {
+  const m = mediaFor(s); if (!m) return toast('Still loading that sound…');
+  if (playing.has(s.id) && !restart) return stopSound(s.id);          // click a playing pad = stop
+  if (mono) stopAll(s.id);
+  m.el.volume = vol(); m.el.currentTime = rangeOf(s).start; setPlaying(s.id, true);
+  m.el.play().catch(() => setPlaying(s.id, false));
+}
+function seekPad(s, e, bar) {
+  const m = mediaFor(s); if (!m) return; const r = rangeOf(s); if (!r.end) return;
+  const q = bar.getBoundingClientRect(), f = clamp((e.clientX - q.left) / q.width, 0, 1);
+  m.el.currentTime = r.start + f * (r.end - r.start);
+  if (!playing.has(s.id)) { if (mono) stopAll(s.id); m.el.volume = vol(); setPlaying(s.id, true); m.el.play().catch(() => setPlaying(s.id, false)); }
+  paint(s.id);
+}
 const current = () => sounds.filter(s => s.board_id === activeBoard);
 function renderGrid() {
   const b = boards.find(b => b.id === activeBoard); if (!b) return;
@@ -265,22 +367,96 @@ function renderGrid() {
   $('empty').style.display = list.length ? 'none' : 'block'; grid.style.display = list.length ? 'grid' : 'none';
   grid.innerHTML = '';
   list.forEach((s, i) => {
-    const p = document.createElement('div'); p.className = 'pad'; p.dataset.id = s.id;
-    if (audios.get(s.id) && !audios.get(s.id).el.paused) p.classList.add('play');
-    p.innerHTML = `<div class="k">${i < 10 ? (i + 1) % 10 : ''}</div><div class="n"></div><div class="e">${s.type || 'AUDIO'}</div><button class="d" title="Delete">✕</button>`;
-    const n = p.querySelector('.n'); n.textContent = s.name;
-    p.onclick = e => { if (n.isContentEditable || e.target.closest('.d')) return; fire(s); };
-    editable(n, async v => { if (v && v !== s.name) await sb.from('sounds').update({ name: v }).eq('id', s.id); else n.textContent = s.name; });
+    const m = mediaFor(s), tr = getTrim(s), p = document.createElement('div');
+    p.className = 'pad' + (isVideo(s) ? ' hasvid' : '') + (playing.has(s.id) ? ' play' : ''); p.dataset.id = s.id;
+    p.innerHTML = `<div class="media"></div><div class="shade"></div><div class="top z"><span class="k">${i < 10 ? (i + 1) % 10 : ''}</span><span class="e">${s.type || 'AUDIO'}${tr.start || tr.end ? ' ✂' : ''}</span></div><div class="n z"></div><div class="t z"></div><div class="bar z"><i></i></div><div class="acts"><button class="cfg" title="Edit name & trim">✂</button><button class="d" title="Delete">✕</button></div>`;
+    p.querySelector('.n').textContent = s.name;
+    if (m && m.vid) p.querySelector('.media').append(m.el);          // live video preview on the pad
+    p.onclick = e => { if (e.target.closest('.bar,.acts')) return; fire(s, e.shiftKey); };
+    const bar = p.querySelector('.bar');
+    bar.onpointerdown = e => { e.stopPropagation(); bar.setPointerCapture(e.pointerId); seekPad(s, e, bar); bar.onpointermove = ev => seekPad(s, ev, bar); bar.onpointerup = () => bar.onpointermove = null; };
+    p.querySelector('.cfg').onclick = e => { e.stopPropagation(); openEdit(s); };
     p.querySelector('.d').onclick = async e => {
       e.stopPropagation();
       if (!confirm(`Delete "${s.name}" for the whole group?`)) return;
-      audios.get(s.id)?.el.pause(); audios.delete(s.id);
+      stopSound(s.id); media.delete(s.id);
       await sb.storage.from(BUCKET).remove([s.storage_path]);
       await sb.from('sounds').delete().eq('id', s.id); reload();
     };
-    grid.append(p);
+    grid.append(p); paint(s.id);
   });
 }
+
+/* ---------- edit / trim modal ---------- */
+let tm = null;
+const parseT = v => { v = String(v).trim(); if (!v) return NaN; if (v.includes(':')) { const [m, s] = v.split(':'); return (+m) * 60 + (+s); } return +v; };
+function syncEdit() {
+  if (!tm || !tm.dur) return; const t = tm.el.currentTime, d = tm.dur;
+  $('tmSel').style.cssText = `left:${tm.start / d * 100}%;width:${(tm.end - tm.start) / d * 100}%`;
+  $('tmHead').style.left = t / d * 100 + '%'; $('tmSeek').value = t;
+  $('tmPos').textContent = `${fmt(t)} / ${fmt(d)}`;
+  if (document.activeElement !== $('tmStart')) $('tmStart').value = fmt(tm.start);
+  if (document.activeElement !== $('tmEnd')) $('tmEnd').value = fmt(tm.end);
+}
+function editTick() {
+  if (!tm) return; const el = tm.el;
+  if (!el.paused && el.currentTime >= tm.end) { el.pause(); el.currentTime = tm.start; }
+  syncEdit(); if (!el.paused) tm.raf = requestAnimationFrame(editTick);
+}
+function setEdit(which, v, seek = true) {
+  if (!tm || isNaN(v)) return syncEdit();
+  if (which === 'start') { tm.start = clamp(v, 0, tm.end - 0.05); if (seek) tm.el.currentTime = tm.start; }
+  else { tm.end = clamp(v, tm.start + 0.05, tm.dur); if (seek) tm.el.currentTime = Math.max(tm.start, tm.end - 0.3); }
+  syncEdit();
+}
+function openEdit(s) {
+  closeEdit(); stopSound(s.id);
+  const url = urls.get(s.storage_path); if (!url) return toast('Still loading that sound…');
+  const vid = isVideo(s), el = document.createElement(vid ? 'video' : 'audio'), t = getTrim(s);
+  el.preload = 'auto'; el.playsInline = true; el.src = url;
+  tm = { id: s.id, el, dur: 0, start: t.start || 0, end: t.end ?? null, raf: 0 };
+  $('tmMedia').innerHTML = ''; if (vid) { el.className = 'tmvid'; $('tmMedia').append(el); }
+  $('tmName').value = s.name;
+  el.onloadedmetadata = () => { tm.dur = el.duration; if (tm.end == null || tm.end > tm.dur) tm.end = tm.dur; $('tmSeek').max = tm.dur; el.currentTime = tm.start; syncEdit(); };
+  el.onplay = () => { $('tmPlay').textContent = '⏸ Pause'; cancelAnimationFrame(tm.raf); editTick(); };
+  el.onpause = () => { $('tmPlay').textContent = '▶ Preview'; syncEdit(); };
+  $('modal').classList.add('open');
+}
+function closeEdit() {
+  if (!tm) return; cancelAnimationFrame(tm.raf); tm.el.pause(); tm.el.removeAttribute('src'); tm.el.load(); tm = null;
+  $('modal').classList.remove('open');
+}
+async function saveTrim(s, start, end) {
+  const L = localTrims(), { error } = await sb.from('sounds').update({ start_sec: start, end_sec: end }).eq('id', s.id);
+  if (error) {
+    console.warn(error);
+    if (start == null && end == null) delete L[s.id]; else L[s.id] = { start, end };
+    toast('Trim saved on this device only — add the start_sec / end_sec columns (SQL in the script) to share it.', 5000);
+  } else { delete L[s.id]; s.start_sec = start; s.end_sec = end; }
+  localStorage.setItem('padboard_trims', JSON.stringify(L));
+}
+$('tmPlay').onclick = () => {
+  if (!tm) return; const el = tm.el;
+  if (!el.paused) return el.pause();
+  if (el.currentTime < tm.start || el.currentTime >= tm.end - 0.05) el.currentTime = tm.start;
+  el.volume = vol(); el.play();
+};
+$('tmSeek').oninput = e => { if (tm) { tm.el.currentTime = +e.target.value; syncEdit(); } };
+$('tmStart').onchange = e => setEdit('start', parseT(e.target.value)); $('tmEnd').onchange = e => setEdit('end', parseT(e.target.value));
+$('tmStart').onblur = $('tmEnd').onblur = syncEdit;
+$('tmSetStart').onclick = () => tm && setEdit('start', tm.el.currentTime, false);
+$('tmSetEnd').onclick = () => tm && setEdit('end', tm.el.currentTime, false);
+$('tmReset').onclick = () => { if (tm) { tm.start = 0; tm.end = tm.dur; tm.el.currentTime = 0; syncEdit(); } };
+$('tmCancel').onclick = closeEdit;
+$('modal').addEventListener('mousedown', e => e.target.id === 'modal' && closeEdit());
+$('tmSave').onclick = async () => {
+  if (!tm) return; const s = byId(tm.id); if (!s) return closeEdit();
+  const start = tm.start <= 0.01 ? null : +tm.start.toFixed(2), end = tm.end >= tm.dur - 0.05 ? null : +tm.end.toFixed(2), name = $('tmName').value.trim();
+  closeEdit();
+  if (name && name !== s.name) await sb.from('sounds').update({ name }).eq('id', s.id);
+  await saveTrim(s, start, end);
+  await reload(); const m = media.get(s.id); if (m) m.el.currentTime = rangeOf(byId(s.id) || s).start;
+};
 
 /* ---------- import ---------- */
 async function addFiles(files) {
@@ -306,12 +482,16 @@ const main = $('main');
 main.addEventListener('drop', e => group && addFiles(e.dataTransfer.files));
 
 /* ---------- controls ---------- */
-$('vol').oninput = () => audios.forEach(a => a.el.volume = vol());
+$('vol').oninput = () => media.forEach(a => a.el.volume = vol());
+$('monoBtn').classList.toggle('on', mono);
+$('monoBtn').onclick = () => { mono = !mono; localStorage.setItem('padboard_mono', mono ? '1' : '0'); $('monoBtn').classList.toggle('on', mono); };
 $('loopBtn').classList.toggle('on', loop);
-$('loopBtn').onclick = () => { loop = !loop; localStorage.setItem('padboard_loop', loop ? '1' : '0'); $('loopBtn').classList.toggle('on', loop); audios.forEach(a => a.el.loop = loop); };
-$('stopBtn').onclick = stopAll;
+$('loopBtn').onclick = () => { loop = !loop; localStorage.setItem('padboard_loop', loop ? '1' : '0'); $('loopBtn').classList.toggle('on', loop); };
+$('stopBtn').onclick = () => stopAll();
 addEventListener('keydown', e => {
-  if (!group || e.target.closest('input,[contenteditable=true]') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') return closeEdit();
+  if (!group || tm || e.target.closest('input,[contenteditable=true]') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === ' ' && e.target === document.body) { e.preventDefault(); return stopAll(); }
   const i = e.key === '0' ? 9 : '123456789'.indexOf(e.key), s = current()[i];
   if (i >= 0 && s) { e.preventDefault(); fire(s); }
 });
