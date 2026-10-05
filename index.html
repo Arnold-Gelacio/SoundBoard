@@ -279,16 +279,14 @@
      (Project Settings → API). The anon key is safe to expose;
      RLS policies from padboard_schema.sql do the real gatekeeping.
   ============================================================ */
-  const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
-  const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+  const SUPABASE_URL = 'https://txtgeumrmzktclxowkzg.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_Bd1tI_CvlSH6o2gTZ8XKhw_9ltX0k3D';
   const BUCKET = 'sounds';
 
   // Google Cloud Console → APIs & Services → Credentials.
   // Needs the Drive API and Picker API enabled on the project.
-  const GOOGLE_CLIENT_ID = 'YOUR-OAUTH-CLIENT-ID.apps.googleusercontent.com';
-  const GOOGLE_API_KEY = 'YOUR-GOOGLE-API-KEY';
-
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const GOOGLE_CLIENT_ID = '911839976579-cafbnjmafen4lg1buui9mtsvfkebp6dr.apps.googleusercontent.com';
+  const GOOGLE_API_KEY = 'AIzaSyDiFG9JbAyNEScaPbbz3_x3Nyj0BiNL9wk';
 
   /* ---------- state ---------- */
   let group = null;          // { id, code, name }
