@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Padboard — group soundboard</title>
+<title>Padboard — offline soundboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#120e09;--panel:#231b12;--raised:#2f2518;--ink:#f4ead9;--dim:#9c8d74;--faint:#6c5f4c;--amber:#f0993f;--glow:rgba(240,153,63,.55);--rose:#c9695c;--line:#3c3122;--side:#0d0a06;
@@ -26,7 +26,7 @@ h1{font-family:var(--disp);font-weight:900;text-transform:uppercase;margin:6px 0
 .or{color:var(--faint);font-size:12px;letter-spacing:.2em;margin:14px 0}
 #newCode{display:none;margin-top:16px;padding:14px;border:1px dashed var(--amber);border-radius:10px;color:var(--dim);font-size:13px}
 #newCode b{display:block;font:600 28px var(--mono);letter-spacing:.3em;color:var(--amber);margin-top:6px}
-.app{display:none;min-height:100vh}
+.app{display:flex;min-height:100vh}
 .side{width:260px;background:var(--side);border-right:1px solid var(--line);padding:20px 16px;position:sticky;top:0;height:100vh;overflow:auto;flex-shrink:0}
 .side h2{font:500 11px var(--mono);letter-spacing:.25em;color:var(--faint);text-transform:uppercase}
 .gbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:16px}
@@ -89,47 +89,28 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
 </head>
 <body>
 
-<div class="gate" id="gate"><div class="card">
-  <div><span class="dot"></span><span class="eyebrow">Padboard</span></div>
-  <h1>Join a soundboard</h1>
-  <p>Enter the group's code. Everything the group has imported is instantly there for you too.</p>
-  <input id="codeInput" maxlength="6" placeholder="••••••" autocomplete="off">
-  <button class="primary" id="joinBtn">Join group</button>
-  <div class="err" id="gateErr"></div>
-  <div class="or">OR</div>
-  <button id="createBtn">Create a new soundboard group</button>
-  <div id="newCode">Share this code with your group<b id="newCodeText"></b></div>
-</div></div>
-
 <div class="app" id="app">
   <aside class="side">
     <h2>Soundboards</h2>
-    <div class="gbox">
-      <div class="eyebrow" style="font-size:9px">Active group</div>
-      <div class="gname" id="gName" title="Double-click to rename"></div>
-      <div class="gcode">CODE: <span id="gCode" title="Double-click to set a memorable code"></span></div>
-      <div class="err" id="gErr" style="margin:4px 0 0"></div>
-      <button id="switchBtn">Switch group</button>
-    </div>
     <div id="boards"></div>
     <button id="newBoardBtn" style="width:100%;margin-top:10px">+ New soundboard</button>
   </aside>
   <main class="main" id="main">
     <header>
       <div><div><span class="dot"></span><span class="eyebrow">Padboard</span></div>
-        <h1 id="bTitle">Board</h1><p>Click a pad to play it, click again to stop. Drag a pad's bar to jump around. Shared with everyone in the group.</p></div>
+        <h1 id="bTitle">Board</h1><p>Click a pad to play it, click again to stop. Drag a pad's bar to jump around. Everything is saved on this device and works offline.</p></div>
       <div class="ctl">
         <label class="vol">VOL <input id="vol" type="range" min="0" max="100" value="80"></label>
         <button id="loopBtn">↻ Loop</button>
         <button id="monoBtn" title="Only one pad plays at a time">◉ Solo</button>
         <button id="stopBtn">Stop all</button>
-        <button id="driveBtn">Import from Drive</button>
+        
         <button id="importBtn" class="primary">+ Import sounds</button>
       </div>
     </header>
     <div class="empty" id="empty"><h3>No sounds yet on this board</h3><p>Drag audio or MP4 files here, or use Import.</p></div>
     <div id="grid" style="display:none"></div>
-    <footer>Keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> fire the first 10 pads · hover a pad for ✂ edit (rename, start/end) and delete · <kbd>Shift</kbd>+click restarts · <kbd>Space</kbd> stops all · everything syncs live to the group</footer>
+    <footer>Keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> fire the first 10 pads · hover a pad for ✂ edit (rename, start/end) and delete · <kbd>Shift</kbd>+click restarts · <kbd>Space</kbd> stops all · stored locally, no internet needed</footer>
   </main>
 </div>
 <input type="file" id="file" accept="audio/*,video/mp4,.mp4" multiple hidden>
@@ -149,23 +130,13 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
 </div></div>
 <div id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-/* ===== CONFIG: Supabase → Project Settings → API ===== */
-const SUPABASE_URL = 'https://txtgeumrmzktclxowkzg.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_Bd1tI_CvlSH6o2gTZ8XKhw_9ltX0k3D';
-  const BUCKET = 'sounds';
-// Optional (Drive import): Google Cloud Console → Credentials. Enable Drive + Picker APIs.
-const GOOGLE_CLIENT_ID = '';
-const GOOGLE_API_KEY = '';
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 const toast = (m, ms = 2500) => { const t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast.t); if (ms) toast.t = setTimeout(() => t.style.display = 'none', ms); };
 
 /* ---------- state ---------- */
-let group = null, boards = [], sounds = [], activeBoard = null, channel = null;
-const urls = new Map();              // storage_path -> signed url
+let boards = [], sounds = [], activeBoard = localStorage.getItem('padboard_board');
+const urls = new Map();              // storage_path -> object URL (from the locally stored file)
 let loop = localStorage.getItem('padboard_loop') === '1';
 
 function editable(el, save) {
@@ -175,87 +146,28 @@ function editable(el, save) {
   el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
 }
 
-/* ---------- auth ---------- */
-async function ensureSession() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) return session;
-  const { data, error } = await sb.auth.signInAnonymously();
-  if (error) throw new Error(error.message + ' — enable Anonymous sign-ins in Supabase → Authentication → Providers.');
-  return data.session;
-}
-
-/* ---------- gate ---------- */
-function showGate() {
-  unsubscribe(); stopAll(); group = null;
-  $('app').style.display = 'none'; $('gate').style.display = 'flex';
-  $('codeInput').value = ''; $('gateErr').textContent = ''; $('newCode').style.display = 'none';
-}
-async function enterGroup(g) {
-  group = g; localStorage.setItem('padboard_group_id', g.id);
-  $('gate').style.display = 'none'; $('app').style.display = 'flex';
-  $('gName').textContent = g.name; $('gCode').textContent = g.code;
-  activeBoard = null;
-  await reload(true);
-  subscribe();
-}
-$('joinBtn').onclick = async () => {
-  const code = $('codeInput').value.trim();
-  if (!code) return ($('gateErr').textContent = 'Enter a code first.');
-  const { data, error } = await sb.rpc('join_group_by_code', { p_code: code });
-  if (error) return ($('gateErr').textContent = error.message);
-  enterGroup(data);
+/* ---------- local storage (IndexedDB: files + settings, works offline) ---------- */
+const dbp = new Promise((res, rej) => {
+  const r = indexedDB.open('padboard', 1);
+  r.onupgradeneeded = () => { r.result.createObjectStore('boards', { keyPath: 'id' }); r.result.createObjectStore('sounds', { keyPath: 'id' }); };
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+});
+const tx = async (store, mode, fn) => {
+  const db = await dbp;
+  return new Promise((res, rej) => { const t = db.transaction(store, mode), r = fn(t.objectStore(store)); t.oncomplete = () => res(r && r.result); t.onerror = t.onabort = () => rej(t.error); });
 };
-$('codeInput').addEventListener('keydown', e => e.key === 'Enter' && $('joinBtn').click());
-$('createBtn').onclick = async () => {
-  const name = prompt('Name this soundboard group:', 'My Group') || 'Untitled Group';
-  const { data, error } = await sb.rpc('create_group', { p_name: name });
-  if (error) return ($('gateErr').textContent = error.message);
-  $('newCodeText').textContent = data.code; $('newCode').style.display = 'block';
-  setTimeout(() => enterGroup(data), 1800);
-};
-$('switchBtn').onclick = () => { localStorage.removeItem('padboard_group_id'); showGate(); };
+const dbAll = s => tx(s, 'readonly', o => o.getAll());
+const dbPut = (s, v) => tx(s, 'readwrite', o => o.put(v));
+const dbDel = (s, id) => tx(s, 'readwrite', o => o.delete(id));
+const byOrder = (a, b) => a.sort_order - b.sort_order || a.created_at - b.created_at;
 
-async function updateGroup(args, revert) {
-  $('gErr').textContent = '';
-  const { data, error } = await sb.rpc('update_group', { p_group_id: group.id, ...args });
-  if (error) { $('gErr').textContent = error.message; revert(); return; }
-  group = data; $('gName').textContent = data.name; $('gCode').textContent = data.code;
-}
-editable($('gName'), v => v && v !== group.name ? updateGroup({ p_new_name: v }, () => $('gName').textContent = group.name) : ($('gName').textContent = group.name));
-editable($('gCode'), v => { v = v.toUpperCase(); return v && v !== group.code ? updateGroup({ p_new_code: v }, () => $('gCode').textContent = group.code) : ($('gCode').textContent = group.code); });
-
-/* ---------- data + realtime ---------- */
-async function reload(first) {
-  const [b, s] = await Promise.all([
-    sb.from('boards').select('*').eq('group_id', group.id).order('sort_order').order('created_at'),
-    sb.from('sounds').select('*').eq('group_id', group.id).order('sort_order').order('created_at')
-  ]);
-  if (b.error || s.error) return toast('Load failed: ' + (b.error || s.error).message, 4000);
-  boards = b.data; sounds = s.data;
-  if (!boards.length) {
-    const { data } = await sb.from('boards').insert({ group_id: group.id, name: 'Board 1' }).select().single();
-    if (data) boards = [data];
-  }
-  if (!boards.find(x => x.id === activeBoard)) activeBoard = boards[0]?.id;
-  const need = sounds.map(x => x.storage_path).filter(p => !urls.has(p));
-  if (need.length) {
-    const { data } = await sb.storage.from(BUCKET).createSignedUrls(need, 86400);
-    (data || []).forEach(r => r.signedUrl && urls.set(r.path, r.signedUrl));
-  }
+async function reload() {
+  boards = (await dbAll('boards')).sort(byOrder); sounds = (await dbAll('sounds')).sort(byOrder);
+  if (!boards.length) { const b = { id: crypto.randomUUID(), name: 'Board 1', sort_order: 0, created_at: Date.now() }; await dbPut('boards', b); boards = [b]; }
+  if (!boards.find(x => x.id === activeBoard)) activeBoard = boards[0].id;
+  sounds.forEach(s => { if (!urls.has(s.storage_path)) urls.set(s.storage_path, URL.createObjectURL(s.blob)); });
   renderBoards(); renderGrid();
 }
-function subscribe() {
-  unsubscribe();
-  const f = t => ({ event: '*', schema: 'public', table: t, filter: `group_id=eq.${group.id}` });
-  channel = sb.channel('group-' + group.id)
-    .on('postgres_changes', f('sounds'), () => reload())
-    .on('postgres_changes', f('boards'), () => reload())
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${group.id}` }, p => {
-      group = p.new; $('gName').textContent = group.name; $('gCode').textContent = group.code;
-    })
-    .subscribe();
-}
-function unsubscribe() { if (channel) { sb.removeChannel(channel); channel = null; } }
 
 /* ---------- boards ---------- */
 function renderBoards() {
@@ -263,31 +175,27 @@ function renderBoards() {
   boards.forEach(b => {
     const d = document.createElement('div'); d.className = 'board' + (b.id === activeBoard ? ' on' : '');
     const n = document.createElement('span'); n.textContent = b.name;
-    d.onclick = () => { activeBoard = b.id; renderBoards(); renderGrid(); };
-    editable(n, async v => { if (v && v !== b.name) await sb.from('boards').update({ name: v }).eq('id', b.id); else n.textContent = b.name; });
+    d.onclick = () => { activeBoard = b.id; localStorage.setItem('padboard_board', b.id); renderBoards(); renderGrid(); };
+    editable(n, async v => { if (v && v !== b.name) { b.name = v; await dbPut('boards', b); reload(); } else n.textContent = b.name; });
     const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.title = 'Delete board';
     x.onclick = async e => {
       e.stopPropagation();
       if (boards.length < 2) return toast('You need at least one board.');
       if (!confirm(`Delete "${b.name}" and all its sounds?`)) return;
-      const paths = sounds.filter(s => s.board_id === b.id).map(s => s.storage_path);
-      if (paths.length) await sb.storage.from(BUCKET).remove(paths);
-      await sb.from('boards').delete().eq('id', b.id);   // cascades to sounds
-      reload();
+      for (const s of sounds.filter(s => s.board_id === b.id)) {
+        stopSound(s.id); media.delete(s.id); URL.revokeObjectURL(urls.get(s.storage_path)); urls.delete(s.storage_path); await dbDel('sounds', s.id);
+      }
+      await dbDel('boards', b.id); reload();
     };
     d.append(n, x); el.append(d);
   });
 }
 $('newBoardBtn').onclick = async () => {
-  const { data, error } = await sb.from('boards').insert({ group_id: group.id, name: `Board ${boards.length + 1}`, sort_order: boards.length }).select().single();
-  if (error) return toast(error.message, 4000);
-  activeBoard = data.id; reload();
+  const b = { id: crypto.randomUUID(), name: `Board ${boards.length + 1}`, sort_order: boards.length, created_at: Date.now() };
+  await dbPut('boards', b); activeBoard = b.id; localStorage.setItem('padboard_board', b.id); reload();
 };
 
 /* ---------- pads ---------- */
-/* OPTIONAL — to share trim points with the whole group, run once in Supabase → SQL editor:
-   alter table public.sounds add column if not exists start_sec double precision, add column if not exists end_sec double precision;
-   Without it, trims are still saved, but only on this device. */
 const vol = () => $('vol').value / 100;
 const media = new Map(), playing = new Set();
 let mono = localStorage.getItem('padboard_mono') === '1', raf = 0;
@@ -378,10 +286,10 @@ function renderGrid() {
     p.querySelector('.cfg').onclick = e => { e.stopPropagation(); openEdit(s); };
     p.querySelector('.d').onclick = async e => {
       e.stopPropagation();
-      if (!confirm(`Delete "${s.name}" for the whole group?`)) return;
+      if (!confirm(`Delete "${s.name}"?`)) return;
       stopSound(s.id); media.delete(s.id);
-      await sb.storage.from(BUCKET).remove([s.storage_path]);
-      await sb.from('sounds').delete().eq('id', s.id); reload();
+      URL.revokeObjectURL(urls.get(s.storage_path)); urls.delete(s.storage_path);
+      await dbDel('sounds', s.id); reload();
     };
     grid.append(p); paint(s.id);
   });
@@ -426,15 +334,7 @@ function closeEdit() {
   if (!tm) return; cancelAnimationFrame(tm.raf); tm.el.pause(); tm.el.removeAttribute('src'); tm.el.load(); tm = null;
   $('modal').classList.remove('open');
 }
-async function saveTrim(s, start, end) {
-  const L = localTrims(), { error } = await sb.from('sounds').update({ start_sec: start, end_sec: end }).eq('id', s.id);
-  if (error) {
-    console.warn(error);
-    if (start == null && end == null) delete L[s.id]; else L[s.id] = { start, end };
-    toast('Trim saved on this device only — add the start_sec / end_sec columns (SQL in the script) to share it.', 5000);
-  } else { delete L[s.id]; s.start_sec = start; s.end_sec = end; }
-  localStorage.setItem('padboard_trims', JSON.stringify(L));
-}
+async function saveTrim(s, start, end) { s.start_sec = start; s.end_sec = end; await dbPut('sounds', s); }
 $('tmPlay').onclick = () => {
   if (!tm) return; const el = tm.el;
   if (!el.paused) return el.pause();
@@ -453,7 +353,7 @@ $('tmSave').onclick = async () => {
   if (!tm) return; const s = byId(tm.id); if (!s) return closeEdit();
   const start = tm.start <= 0.01 ? null : +tm.start.toFixed(2), end = tm.end >= tm.dur - 0.05 ? null : +tm.end.toFixed(2), name = $('tmName').value.trim();
   closeEdit();
-  if (name && name !== s.name) await sb.from('sounds').update({ name }).eq('id', s.id);
+  if (name) s.name = name;
   await saveTrim(s, start, end);
   await reload(); const m = media.get(s.id); if (m) m.el.currentTime = rangeOf(byId(s.id) || s).start;
 };
@@ -464,13 +364,11 @@ async function addFiles(files) {
   if (!files.length) return toast('No audio or MP4 files found.');
   let order = Math.max(-1, ...current().map(s => s.sort_order)) + 1, n = 0;
   for (const f of files) {
-    toast(`Uploading ${++n}/${files.length}: ${f.name}`, 0);
+    toast(`Importing ${++n}/${files.length}: ${f.name}`, 0);
     const id = crypto.randomUUID(), ext = (f.name.split('.').pop() || 'audio').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const path = `${group.id}/${id}.${ext}`;
-    const up = await sb.storage.from(BUCKET).upload(path, f, { contentType: f.type || 'audio/mpeg' });
-    if (up.error) { console.error(up.error); return toast('Upload failed: ' + up.error.message, 5000); }
-    const ins = await sb.from('sounds').insert({ id, group_id: group.id, board_id: activeBoard, name: f.name.replace(/\.[^.]+$/, ''), type: ext.toUpperCase(), storage_path: path, sort_order: order++ });
-    if (ins.error) { await sb.storage.from(BUCKET).remove([path]); return toast('Save failed: ' + ins.error.message, 5000); }
+    try {
+      await dbPut('sounds', { id, board_id: activeBoard, name: f.name.replace(/\.[^.]+$/, ''), type: ext.toUpperCase(), storage_path: `${id}.${ext}`, sort_order: order++, created_at: Date.now(), blob: new Blob([f], { type: f.type || (ext === 'mp4' ? 'video/mp4' : 'audio/mpeg') }) });
+    } catch (e) { console.error(e); return toast('Could not save (storage full or blocked): ' + (e.message || e), 6000); }
   }
   await reload(); toast(`Imported ${files.length} sound${files.length > 1 ? 's' : ''}`);
 }
@@ -479,7 +377,7 @@ $('file').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
 const main = $('main');
 ['dragover', 'dragenter'].forEach(t => main.addEventListener(t, e => { e.preventDefault(); main.classList.add('drag'); }));
 ['dragleave', 'drop'].forEach(t => main.addEventListener(t, e => { e.preventDefault(); main.classList.remove('drag'); }));
-main.addEventListener('drop', e => group && addFiles(e.dataTransfer.files));
+main.addEventListener('drop', e => addFiles(e.dataTransfer.files));
 
 /* ---------- controls ---------- */
 $('vol').oninput = () => media.forEach(a => a.el.volume = vol());
@@ -490,53 +388,15 @@ $('loopBtn').onclick = () => { loop = !loop; localStorage.setItem('padboard_loop
 $('stopBtn').onclick = () => stopAll();
 addEventListener('keydown', e => {
   if (e.key === 'Escape') return closeEdit();
-  if (!group || tm || e.target.closest('input,[contenteditable=true]') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (tm || e.target.closest('input,[contenteditable=true]') || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === ' ' && e.target === document.body) { e.preventDefault(); return stopAll(); }
   const i = e.key === '0' ? 9 : '123456789'.indexOf(e.key), s = current()[i];
   if (i >= 0 && s) { e.preventDefault(); fire(s); }
 });
 
-/* ---------- Google Drive import (optional) ---------- */
-let tokenClient = null, driveToken = null;
-const loadJs = src => new Promise(r => { const s = document.createElement('script'); s.src = src; s.onload = r; document.head.append(s); });
-if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) { $('driveBtn').disabled = true; $('driveBtn').title = 'Add Google keys in the config to enable'; }
-$('driveBtn').onclick = async () => {
-  if (!tokenClient) {
-    await Promise.all([loadJs('https://apis.google.com/js/api.js'), loadJs('https://accounts.google.com/gsi/client')]);
-    await new Promise(r => gapi.load('picker', r));
-    tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.readonly', callback: '' });
-  }
-  tokenClient.callback = r => { if (r.error) return console.error(r); driveToken = r.access_token; pick(); };
-  tokenClient.requestAccessToken({ prompt: driveToken ? '' : 'consent' });
-};
-function pick() {
-  const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes('audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/flac,audio/aac,video/mp4').setIncludeFolders(false);
-  new google.picker.PickerBuilder().setOAuthToken(driveToken).setDeveloperKey(GOOGLE_API_KEY).addView(view).setCallback(async d => {
-    if (d.action !== google.picker.Action.PICKED) return;
-    for (const f of d.docs) {
-      try {
-        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`, { headers: { Authorization: 'Bearer ' + driveToken } });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const blob = await res.blob(); await addFiles([new File([blob], f.name, { type: f.mimeType || blob.type })]);
-      } catch (e) { toast(`Couldn't import "${f.name}": ${e.message}`, 4000); }
-    }
-  }).build().setVisible(true);
-}
-
 /* ---------- boot ---------- */
-(async function init() {
-  if (SUPABASE_URL.includes('YOUR-') || SUPABASE_ANON_KEY.includes('YOUR-')) {
-    showGate(); return ($('gateErr').textContent = 'Add your Supabase URL and anon key at the top of the script.');
-  }
-  try { await ensureSession(); } catch (e) { showGate(); return ($('gateErr').textContent = e.message); }
-  const saved = localStorage.getItem('padboard_group_id');
-  if (saved) {
-    const { data } = await sb.from('groups').select('*').eq('id', saved).maybeSingle();
-    if (data) return enterGroup(data);
-    localStorage.removeItem('padboard_group_id');
-  }
-  showGate();
-})();
+navigator.storage?.persist?.();      // ask the browser not to evict saved sounds
+reload().catch(e => toast('Local storage unavailable: ' + e.message, 8000));
 </script>
 </body>
 </html>
