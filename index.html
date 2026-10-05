@@ -110,7 +110,10 @@
   }
   .group-box .g-tag{ font-family: var(--font-mono); font-size:9px; letter-spacing:.18em; color: var(--ink-faint); text-transform:uppercase; }
   .group-box .g-name{ font-weight:700; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; }
-  .group-box .g-code{ font-family: var(--font-mono); font-size:11px; color: var(--amber); margin-top:4px; letter-spacing:.08em; }
+  .group-box .g-code{ font-family: var(--font-mono); font-size:11px; color: var(--ink-faint); margin-top:4px; letter-spacing:.08em; }
+  .group-box .g-code-value{ color: var(--amber); outline: none; }
+  .group-box .g-name[contenteditable="true"], .group-box .g-code-value[contenteditable="true"]{ background: #00000040; border-radius: 4px; padding: 1px 3px; cursor: text; }
+  .group-box .g-error{ color: var(--rose); font-size: 10.5px; margin-top: 6px; line-height:1.4; display:none; }
   .group-box button{ width:100%; margin-top:10px; padding:7px; font-size:11.5px; }
   .board-item{ display:flex; align-items:center; gap: 9px; padding: 10px 10px; border-radius: 9px; margin-bottom: 4px; cursor: pointer; border-left: 3px solid transparent; transition: background .12s; }
   .board-item:hover{ background: #1a140d; }
@@ -172,33 +175,12 @@
   .pad .led{ position:absolute; top: 13px; right: 13px; width: 7px; height:7px; border-radius:50%; background: var(--line); box-shadow: inset 0 1px 1px #00000060; transition: all .15s; }
   .pad.playing .led{ background: var(--amber); box-shadow: 0 0 8px 2px var(--amber-glow); animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
-  .progress-track{ position:absolute; left:0; right:0; bottom:0; height: 16px; cursor: pointer; z-index: 2; touch-action: none; }
-  .progress-track::before{ content:''; position:absolute; left:0; right:0; bottom:6px; height:3px; border-radius:2px; background: var(--line); opacity:0; transition: opacity .12s; }
-  .progress-track:hover::before, .progress-track.seeking::before{ opacity:.7; }
-  .pad.loading .progress-track{ pointer-events:none; cursor:default; }
-  .progress{ position:absolute; left:0; bottom:6px; height: 3px; width: 0%; border-radius:2px; background: var(--amber); box-shadow: 0 0 6px 1px var(--amber-glow); transition: width .05s linear, height .1s; pointer-events:none; }
-  .progress-track:hover .progress, .progress-track.seeking .progress{ height: 5px; }
-  .progress::after{ content:''; position:absolute; right:-4px; top:50%; width:8px; height:8px; border-radius:50%; background: var(--amber); transform: translateY(-50%) scale(0); box-shadow: 0 0 4px 1px var(--amber-glow); transition: transform .1s; }
-  .progress-track:hover .progress::after, .progress-track.seeking .progress::after{ transform: translateY(-50%) scale(1); }
+  .progress{ position:absolute; left:0; bottom:0; height: 3px; width: 0%; background: var(--amber); box-shadow: 0 0 6px 1px var(--amber-glow); transition: width .05s linear; }
   .pad.playing{ border-color: var(--amber-dim); box-shadow: 0 0 0 1px #f0993f33, inset 0 -10px 18px -12px #00000070; }
-  .pad .timestamp{ position:absolute; bottom:9px; right:11px; font-family: var(--font-mono); font-size:10px; letter-spacing:.03em; color: var(--ink-faint); pointer-events:none; font-variant-numeric: tabular-nums; }
-  .pad.playing .timestamp{ color: var(--amber); }
-  .pad.loading{ opacity:.85; pointer-events:none; }
-  .pad.loading::after{
-    content:''; position:absolute; inset:0; border-radius: inherit; pointer-events:none;
-    background: linear-gradient(100deg, transparent 25%, #f0993f26 50%, transparent 75%);
-    background-size: 200% 100%;
-    animation: pad-shimmer 1.3s ease-in-out infinite;
-  }
-  .pad-spinner{
-    display:none; position:absolute; top:50%; left:50%; transform: translate(-50%,-50%);
-    width:20px; height:20px; border-radius:50%; z-index:1;
-    border: 2px solid var(--line); border-top-color: var(--amber);
-    animation: pad-spin .7s linear infinite;
-  }
-  .pad.loading .pad-spinner{ display:block; }
-  @keyframes pad-shimmer{ 0%{ background-position: 200% 0; } 100%{ background-position: -200% 0; } }
-  @keyframes pad-spin{ to{ transform: translate(-50%,-50%) rotate(360deg); } }
+  .pad.loading{ opacity:.5; }
+  .pad.has-thumb::before{ content:''; position:absolute; inset:0; background-image: var(--thumb); background-size: cover; background-position: center; z-index:-1; }
+  .pad.has-thumb::after{ content:''; position:absolute; inset:0; background: linear-gradient(180deg, rgba(12,9,6,.25), rgba(12,9,6,.82) 72%); z-index:-1; }
+  .pad.has-thumb .meta-type::before{ content:'▶ '; }
   .remove-btn{ position:absolute; top: 8px; left: 8px; width: 20px; height:20px; border-radius: 6px; border: 1px solid var(--line); background: #0d0a06cc; color: var(--ink-dim); font-size: 12px; line-height: 1; display:none; align-items:center; justify-content:center; padding: 0; }
   .pad:hover .remove-btn{ display:flex; }
   .remove-btn:hover{ color: var(--rose); border-color: var(--rose); }
@@ -245,8 +227,9 @@
     <h2>Soundboards</h2>
     <div class="group-box">
       <div class="g-tag">Active group</div>
-      <div class="g-name" id="groupName">Group</div>
-      <div class="g-code" id="groupCode">CODE</div>
+      <div class="g-name" id="groupName" contenteditable="false" spellcheck="false" title="Double-click to rename">Group</div>
+      <div class="g-code">CODE: <span class="g-code-value" id="groupCode" contenteditable="false" spellcheck="false" title="Double-click to set a memorable code">CODE</span></div>
+      <div class="g-error" id="groupError"></div>
       <button id="switchGroupBtn">Switch group</button>
     </div>
     <div id="boardList"></div>
@@ -262,6 +245,7 @@
       </div>
       <div class="controls">
         <div class="vol-row">VOL <input id="vol" type="range" min="0" max="100" value="80"></div>
+        <button id="loopBtn" title="Loop pad playback" aria-pressed="false">↻ Loop</button>
         <button id="stopAllBtn">Stop all</button>
         <button id="driveImportBtn" disabled title="Loading Google Drive…">Import from Drive</button>
         <button id="importBtn" class="btn-primary">+ Import sounds</button>
@@ -295,14 +279,14 @@
      (Project Settings → API). The anon key is safe to expose;
      RLS policies from padboard_schema.sql do the real gatekeeping.
   ============================================================ */
-  const SUPABASE_URL = 'https://txtgeumrmzktclxowkzg.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_Bd1tI_CvlSH6o2gTZ8XKhw_9ltX0k3D';
+  const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
+  const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
   const BUCKET = 'sounds';
 
   // Google Cloud Console → APIs & Services → Credentials.
   // Needs the Drive API and Picker API enabled on the project.
-  const GOOGLE_CLIENT_ID = '911839976579-cafbnjmafen4lg1buui9mtsvfkebp6dr.apps.googleusercontent.com';
-  const GOOGLE_API_KEY = 'AIzaSyDiFG9JbAyNEScaPbbz3_x3Nyj0BiNL9wk';
+  const GOOGLE_CLIENT_ID = 'YOUR-OAUTH-CLIENT-ID.apps.googleusercontent.com';
+  const GOOGLE_API_KEY = 'YOUR-GOOGLE-API-KEY';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -327,6 +311,10 @@
   const boardTitleEl = document.getElementById('boardTitle');
   const groupNameEl = document.getElementById('groupName');
   const groupCodeEl = document.getElementById('groupCode');
+  const groupErrorEl = document.getElementById('groupError');
+  const loopBtn = document.getElementById('loopBtn');
+
+  let loopEnabled = localStorage.getItem('padboard_loop') === '1';
 
   function escapeHtml(str){
     const d = document.createElement('div');
@@ -366,7 +354,7 @@
     gate.style.display = 'none';
     appRoot.style.display = 'flex';
     groupNameEl.textContent = g.name;
-    groupCodeEl.textContent = 'CODE: ' + g.code;
+    groupCodeEl.textContent = g.code;
     await loadBoards();
     renderBoardList();
     await setActiveBoard(boards[0].id);
@@ -398,6 +386,38 @@
     teardownPads();
     group = null;
     showGate();
+  });
+
+  function startEditing(el){
+    el.contentEditable = 'true';
+    el.focus();
+    document.getSelection().selectAllChildren(el);
+  }
+
+  groupNameEl.addEventListener('dblclick', () => startEditing(groupNameEl));
+  groupNameEl.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); groupNameEl.blur(); } });
+  groupNameEl.addEventListener('blur', async () => {
+    groupNameEl.contentEditable = 'false';
+    const newName = groupNameEl.textContent.trim();
+    if(!newName || newName === group.name){ groupNameEl.textContent = group.name; return; }
+    const { data, error } = await sb.rpc('update_group', { p_group_id: group.id, p_new_name: newName });
+    if(error){ groupErrorEl.textContent = error.message; groupErrorEl.style.display = 'block'; groupNameEl.textContent = group.name; return; }
+    groupErrorEl.style.display = 'none';
+    group = data;
+    groupNameEl.textContent = group.name;
+  });
+
+  groupCodeEl.addEventListener('dblclick', () => startEditing(groupCodeEl));
+  groupCodeEl.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); groupCodeEl.blur(); } });
+  groupCodeEl.addEventListener('blur', async () => {
+    groupCodeEl.contentEditable = 'false';
+    const newCode = groupCodeEl.textContent.trim().toUpperCase();
+    if(!newCode || newCode === group.code){ groupCodeEl.textContent = group.code; return; }
+    const { data, error } = await sb.rpc('update_group', { p_group_id: group.id, p_new_code: newCode });
+    if(error){ groupErrorEl.textContent = error.message; groupErrorEl.style.display = 'block'; groupCodeEl.textContent = group.code; return; }
+    groupErrorEl.style.display = 'none';
+    group = data;
+    groupCodeEl.textContent = group.code;
   });
 
   /* ---------- boards ---------- */
@@ -518,13 +538,16 @@
       pad.url = data.signedUrl;
       pad.audio = new Audio(pad.url);
       pad.audio.preload = 'metadata';
+      pad.audio.loop = loopEnabled;
       pad.audio.addEventListener('play', () => setPlaying(pad.id, true));
       pad.audio.addEventListener('pause', () => setPlaying(pad.id, false));
-      pad.audio.addEventListener('ended', () => { setPlaying(pad.id, false); updateTimestamp(pad.id); });
-      pad.audio.addEventListener('timeupdate', () => { updateProgress(pad.id); updateTimestamp(pad.id); });
-      pad.audio.addEventListener('loadedmetadata', () => updateTimestamp(pad.id));
+      pad.audio.addEventListener('ended', () => setPlaying(pad.id, false));
+      pad.audio.addEventListener('timeupdate', () => updateProgress(pad.id));
       const el = document.getElementById(pad.id);
       if(el) el.classList.remove('loading');
+      if(pad.type === 'MP4'){
+        generateVideoThumbnail(pad.url).then(thumb => { if(thumb){ pad.thumb = thumb; applyPadThumb(pad); } });
+      }
     }
   }
 
@@ -545,58 +568,8 @@
     if(pad.audio.duration) bar.style.width = (pad.audio.currentTime / pad.audio.duration * 100) + '%';
   }
 
-  function formatTime(sec){
-    if(!isFinite(sec) || sec < 0) sec = 0;
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return m + ':' + String(s).padStart(2, '0');
-  }
-
-  function updateTimestamp(id){
-    const pad = pads.find(p => p.id === id);
-    const el = document.getElementById(id);
-    if(!pad || !el || !pad.audio) return;
-    const ts = el.querySelector('.timestamp');
-    if(!ts) return;
-    const dur = pad.audio.duration;
-    ts.textContent = formatTime(pad.audio.currentTime) + ' / ' + (isFinite(dur) && dur > 0 ? formatTime(dur) : '--:--');
-  }
-
-  function attachSeekHandlers(trackEl, pad){
-    if(!trackEl) return;
-    let dragging = false;
-    const seekTo = (clientX) => {
-      const dur = pad.audio && pad.audio.duration;
-      if(!pad.audio || !isFinite(dur) || dur <= 0) return;
-      const rect = trackEl.getBoundingClientRect();
-      const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-      pad.audio.currentTime = frac * dur;
-      updateProgress(pad.id);
-      updateTimestamp(pad.id);
-    };
-    trackEl.addEventListener('pointerdown', (e) => {
-      if(!pad.audio) return;
-      dragging = true;
-      trackEl.classList.add('seeking');
-      trackEl.setPointerCapture(e.pointerId);
-      seekTo(e.clientX);
-    });
-    trackEl.addEventListener('pointermove', (e) => { if(dragging) seekTo(e.clientX); });
-    const endDrag = () => { dragging = false; trackEl.classList.remove('seeking'); };
-    trackEl.addEventListener('pointerup', endDrag);
-    trackEl.addEventListener('pointercancel', endDrag);
-  }
-
   function triggerPad(pad){
     if(!pad.audio) return; // still loading its signed URL
-    if(!pad.audio.paused){
-      // already playing — clicking again stops it instead of restarting
-      pad.audio.pause();
-      pad.audio.currentTime = 0;
-      updateProgress(pad.id);
-      updateTimestamp(pad.id);
-      return;
-    }
     pad.audio.currentTime = 0;
     pad.audio.volume = volSlider.value / 100;
     pad.audio.play();
@@ -634,13 +607,16 @@
         pad.url = signed.signedUrl;
         pad.audio = new Audio(pad.url);
         pad.audio.preload = 'metadata';
+        pad.audio.loop = loopEnabled;
         pad.audio.addEventListener('play', () => setPlaying(pad.id, true));
         pad.audio.addEventListener('pause', () => setPlaying(pad.id, false));
-        pad.audio.addEventListener('ended', () => { setPlaying(pad.id, false); updateTimestamp(pad.id); });
-        pad.audio.addEventListener('timeupdate', () => { updateProgress(pad.id); updateTimestamp(pad.id); });
-        pad.audio.addEventListener('loadedmetadata', () => updateTimestamp(pad.id));
+        pad.audio.addEventListener('ended', () => setPlaying(pad.id, false));
+        pad.audio.addEventListener('timeupdate', () => updateProgress(pad.id));
         const el = document.getElementById(pad.id);
         if(el) el.classList.remove('loading');
+        if(pad.type === 'MP4'){
+          generateVideoThumbnail(pad.url).then(thumb => { if(thumb){ pad.thumb = thumb; applyPadThumb(pad); } });
+        }
       }
     }
     renderGrid();
@@ -670,19 +646,16 @@
       el.id = pad.id;
       el.innerHTML = `
         <div class="led"></div>
-        <div class="pad-spinner"></div>
         <button class="remove-btn" title="Delete">×</button>
         <span class="num">${i+1}</span>
         <div class="name" contenteditable="false" spellcheck="false">${escapeHtml(pad.name)}</div>
         <div class="meta"><span class="meta-type">${pad.type}</span></div>
-        <span class="timestamp">0:00 / --:--</span>
-        <div class="progress-track"><div class="progress"></div></div>
+        <div class="progress"></div>
       `;
       el.addEventListener('click', (e) => {
-        if(e.target.closest('.remove-btn') || e.target.closest('.progress-track') || el.querySelector('.name').isContentEditable) return;
+        if(e.target.closest('.remove-btn') || el.querySelector('.name').isContentEditable) return;
         triggerPad(pad);
       });
-      attachSeekHandlers(el.querySelector('.progress-track'), pad);
       el.querySelector('.remove-btn').addEventListener('click', (e) => { e.stopPropagation(); removePad(pad.id); });
       const nameEl = el.querySelector('.name');
       nameEl.addEventListener('dblclick', (e) => {
@@ -803,14 +776,7 @@
   fileInput.addEventListener('change', (e) => { addFiles(e.target.files); fileInput.value = ''; });
 
   document.getElementById('stopAllBtn').addEventListener('click', () => {
-    pads.forEach(p => {
-      if(p.audio){
-        p.audio.pause();
-        p.audio.currentTime = 0;
-        updateProgress(p.id);
-        updateTimestamp(p.id);
-      }
-    });
+    pads.forEach(p => { if(p.audio){ p.audio.pause(); p.audio.currentTime = 0; } });
   });
   volSlider.addEventListener('input', () => { pads.forEach(p => { if(p.audio) p.audio.volume = volSlider.value / 100; }); });
 
