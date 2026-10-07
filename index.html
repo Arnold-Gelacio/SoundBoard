@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Padboard — offline soundboard</title>
+<title>Padboard — soundboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#120e09;--panel:#231b12;--raised:#2f2518;--ink:#f4ead9;--dim:#9c8d74;--faint:#6c5f4c;--amber:#f0993f;--glow:rgba(240,153,63,.55);--rose:#c9695c;--line:#3c3122;--side:#0d0a06;
@@ -84,6 +84,9 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
 .mgrid button{font-size:12px;padding:6px}
 .mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.mbtns .sp{flex:1}
 .mhint{font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5}
+.ghost{font-size:14px;padding:3px 9px;vertical-align:middle;text-transform:none;font-family:var(--body);font-weight:400}
+.board span.act{display:flex;gap:2px}.board .ren{color:var(--dim)}
+@media(hover:none){.board .x,.pad .acts{opacity:1}}
 @media(max-width:720px){.app{flex-direction:column}.side{width:100%;height:auto;position:static;border:none;border-bottom:1px solid var(--line)}}
 </style>
 </head>
@@ -94,11 +97,13 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
     <h2>Soundboards</h2>
     <div id="boards"></div>
     <button id="newBoardBtn" style="width:100%;margin-top:10px">+ New soundboard</button>
+    <div class="gbox" style="margin-top:22px"><div class="eyebrow" style="font-size:9px">Sync</div>
+      <div id="syncStat" class="gcode" style="margin:6px 0;line-height:1.5"></div><div id="syncBtns"></div></div>
   </aside>
   <main class="main" id="main">
     <header>
       <div><div><span class="dot"></span><span class="eyebrow">Padboard</span></div>
-        <h1 id="bTitle">Board</h1><p>Click a pad to play it, click again to stop. Drag a pad's bar to jump around. Everything is saved on this device and works offline.</p></div>
+        <h1><span id="bTitle">Board</span> <button class="ghost" id="renameBtn" title="Rename this soundboard">✎ Rename</button></h1><p>Click a pad to play it, click again to stop. Drag a pad's bar to jump around. Saved on this device, works offline, and syncs across devices when sync is on.</p></div>
       <div class="ctl">
         <label class="vol">VOL <input id="vol" type="range" min="0" max="100" value="80"></label>
         <button id="loopBtn">↻ Loop</button>
@@ -110,7 +115,7 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
     </header>
     <div class="empty" id="empty"><h3>No sounds yet on this board</h3><p>Drag audio or MP4 files here, or use Import.</p></div>
     <div id="grid" style="display:none"></div>
-    <footer>Keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> fire the first 10 pads · hover a pad for ✂ edit (rename, start/end) and delete · <kbd>Shift</kbd>+click restarts · <kbd>Space</kbd> stops all · stored locally, no internet needed</footer>
+    <footer>Keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> fire the first 10 pads · hover a pad for ✂ edit (rename, start/end) and delete · <kbd>Shift</kbd>+click restarts · <kbd>Space</kbd> stops all · works offline, syncs when online</footer>
   </main>
 </div>
 <input type="file" id="file" accept="audio/*,video/mp4,.mp4" multiple hidden>
@@ -176,23 +181,26 @@ function renderBoards() {
     const d = document.createElement('div'); d.className = 'board' + (b.id === activeBoard ? ' on' : '');
     const n = document.createElement('span'); n.textContent = b.name;
     d.onclick = () => { activeBoard = b.id; localStorage.setItem('padboard_board', b.id); renderBoards(); renderGrid(); };
-    editable(n, async v => { if (v && v !== b.name) { b.name = v; await dbPut('boards', b); reload(); } else n.textContent = b.name; });
+    editable(n, async v => { if (v && v !== b.name) { b.name = v; await touch('boards', b); reload(); } else n.textContent = b.name; });
     const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.title = 'Delete board';
     x.onclick = async e => {
       e.stopPropagation();
       if (boards.length < 2) return toast('You need at least one board.');
       if (!confirm(`Delete "${b.name}" and all its sounds?`)) return;
       for (const s of sounds.filter(s => s.board_id === b.id)) {
-        stopSound(s.id); media.delete(s.id); URL.revokeObjectURL(urls.get(s.storage_path)); urls.delete(s.storage_path); await dbDel('sounds', s.id);
+        stopSound(s.id); media.delete(s.id); URL.revokeObjectURL(urls.get(s.storage_path)); urls.delete(s.storage_path); tomb('sounds', s); await dbDel('sounds', s.id);
       }
-      await dbDel('boards', b.id); reload();
+      tomb('boards', b); await dbDel('boards', b.id); reload();
     };
-    d.append(n, x); el.append(d);
+    const r = document.createElement('button'); r.className = 'x ren'; r.textContent = '✎'; r.title = 'Rename board';
+    r.onclick = e => { e.stopPropagation(); renameBoard(b); };
+    const act = document.createElement('span'); act.className = 'act'; act.append(r, x);
+    d.append(n, act); el.append(d);
   });
 }
 $('newBoardBtn').onclick = async () => {
   const b = { id: crypto.randomUUID(), name: `Board ${boards.length + 1}`, sort_order: boards.length, created_at: Date.now() };
-  await dbPut('boards', b); activeBoard = b.id; localStorage.setItem('padboard_board', b.id); reload();
+  await touch('boards', b); activeBoard = b.id; localStorage.setItem('padboard_board', b.id); reload();
 };
 
 /* ---------- pads ---------- */
@@ -289,7 +297,7 @@ function renderGrid() {
       if (!confirm(`Delete "${s.name}"?`)) return;
       stopSound(s.id); media.delete(s.id);
       URL.revokeObjectURL(urls.get(s.storage_path)); urls.delete(s.storage_path);
-      await dbDel('sounds', s.id); reload();
+      tomb('sounds', s); await dbDel('sounds', s.id); reload();
     };
     grid.append(p); paint(s.id);
   });
@@ -334,7 +342,7 @@ function closeEdit() {
   if (!tm) return; cancelAnimationFrame(tm.raf); tm.el.pause(); tm.el.removeAttribute('src'); tm.el.load(); tm = null;
   $('modal').classList.remove('open');
 }
-async function saveTrim(s, start, end) { s.start_sec = start; s.end_sec = end; await dbPut('sounds', s); }
+async function saveTrim(s, start, end) { s.start_sec = start; s.end_sec = end; await touch('sounds', s); }
 $('tmPlay').onclick = () => {
   if (!tm) return; const el = tm.el;
   if (!el.paused) return el.pause();
@@ -367,7 +375,7 @@ async function addFiles(files) {
     toast(`Importing ${++n}/${files.length}: ${f.name}`, 0);
     const id = crypto.randomUUID(), ext = (f.name.split('.').pop() || 'audio').toLowerCase().replace(/[^a-z0-9]/g, '');
     try {
-      await dbPut('sounds', { id, board_id: activeBoard, name: f.name.replace(/\.[^.]+$/, ''), type: ext.toUpperCase(), storage_path: `${id}.${ext}`, sort_order: order++, created_at: Date.now(), blob: new Blob([f], { type: f.type || (ext === 'mp4' ? 'video/mp4' : 'audio/mpeg') }) });
+      await touch('sounds', { id, board_id: activeBoard, name: f.name.replace(/\.[^.]+$/, ''), type: ext.toUpperCase(), storage_path: `${id}.${ext}`, sort_order: order++, created_at: Date.now(), blob: new Blob([f], { type: f.type || (ext === 'mp4' ? 'video/mp4' : 'audio/mpeg') }) });
     } catch (e) { console.error(e); return toast('Could not save (storage full or blocked): ' + (e.message || e), 6000); }
   }
   await reload(); toast(`Imported ${files.length} sound${files.length > 1 ? 's' : ''}`);
@@ -394,9 +402,139 @@ addEventListener('keydown', e => {
   if (i >= 0 && s) { e.preventDefault(); fire(s); }
 });
 
+/* ---------- rename ---------- */
+async function renameBoard(b) {
+  const v = (prompt('Rename soundboard:', b.name) || '').trim();
+  if (v && v !== b.name) { b.name = v; await touch('boards', b); reload(); }
+}
+$('renameBtn').onclick = () => { const b = boards.find(x => x.id === activeBoard); if (b) renameBoard(b); };
+
+/* ---------- optional sync via Supabase (the app works fully without it / offline) ---------- */
+const SUPABASE_URL = 'https://txtgeumrmzktclxowkzg.supabase.co', SUPABASE_ANON_KEY = 'sb_publishable_Bd1tI_CvlSH6o2gTZ8XKhw_9ltX0k3D', BUCKET = 'sounds';
+/* OPTIONAL — to sync trim points too, run once in Supabase → SQL editor:
+   alter table public.sounds add column if not exists start_sec double precision, add column if not exists end_sec double precision; */
+let sb = null, group = JSON.parse(localStorage.getItem('padboard_sync') || 'null'), channel = null, syncing = false, again = false, timer = 0, status = '';
+const mime = ext => ({ mp4: 'video/mp4', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', flac: 'audio/flac', aac: 'audio/aac' }[ext] || 'audio/mpeg');
+const loadJs = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('no connection')); document.head.append(s); });
+async function getSb() {
+  if (!sb) { if (!window.supabase) await loadJs('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js'); sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { const { error } = await sb.auth.signInAnonymously(); if (error) throw new Error(error.message + ' — enable Anonymous sign-ins in Supabase → Authentication.'); }
+  return sb;
+}
+const tombs = () => { try { return JSON.parse(localStorage.getItem('padboard_tombs')) || { boards: [], sounds: [] }; } catch { return { boards: [], sounds: [] }; } };
+const saveTombs = t => localStorage.setItem('padboard_tombs', JSON.stringify(t));
+function tomb(kind, rec) { if (!rec.synced) return; const t = tombs(); t[kind].push({ id: rec.id, path: rec.storage_path }); saveTombs(t); scheduleSync(); }
+async function touch(store, rec) { rec.dirty = true; await dbPut(store, rec); scheduleSync(); }
+function scheduleSync() { clearTimeout(timer); timer = setTimeout(sync, 700); }
+
+function renderSync() {
+  $('syncStat').innerHTML = !group ? 'Local only. Turn on sync to use these boards on your other devices.'
+    : (!navigator.onLine ? 'Offline — changes sync when you are back online' : status || 'Sync on') + `<br>Code: <span style="color:var(--amber)">${group.code}</span>`;
+  const b = $('syncBtns'); b.innerHTML = '';
+  const add = (t, f) => { const x = document.createElement('button'); x.textContent = t; x.onclick = f; b.append(x); };
+  if (!group) { add('Create sync code', createSync); add('Enter sync code', joinSync); }
+  else { add('Sync now', sync); add('Copy code', () => navigator.clipboard?.writeText(group.code).then(() => toast('Code copied'))); add('Turn off sync', stopSync); }
+}
+async function startSync(g) {
+  group = { id: g.id, name: g.name, code: g.code }; localStorage.setItem('padboard_sync', JSON.stringify(group));
+  toast('Sync on'); subscribe(); await sync();
+}
+async function createSync() {
+  try { toast('Setting up sync…', 0); const c = await getSb(), { data, error } = await c.rpc('create_group', { p_name: 'Padboard' }); if (error) throw error; await startSync(data); }
+  catch (e) { toast('Could not turn on sync: ' + (e.message || e), 5000); }
+}
+async function joinSync() {
+  const code = (prompt('Enter the sync code from your other device:') || '').trim(); if (!code) return;
+  try {
+    const c = await getSb(), { data, error } = await c.rpc('join_group_by_code', { p_code: code }); if (error) throw error;
+    if (boards.length === 1 && !sounds.length && !boards[0].synced) await dbDel('boards', boards[0].id);   // drop the empty auto-made board
+    await startSync(data);
+  } catch (e) { toast('Could not join: ' + (e.message || e), 5000); }
+}
+async function stopSync() {
+  if (!confirm('Turn off sync on this device? Your sounds stay here.')) return;
+  unsub(); group = null; localStorage.removeItem('padboard_sync'); saveTombs({ boards: [], sounds: [] });
+  for (const s of ['boards', 'sounds']) for (const r of await dbAll(s)) { r.synced = false; r.uploaded = false; r.dirty = true; await dbPut(s, r); }
+  renderSync();
+}
+async function subscribe() {
+  try {
+    const c = await getSb(); unsub(); const f = t => ({ event: '*', schema: 'public', table: t, filter: `group_id=eq.${group.id}` });
+    channel = c.channel('g-' + group.id).on('postgres_changes', f('sounds'), scheduleSync).on('postgres_changes', f('boards'), scheduleSync).subscribe();
+  } catch {}
+}
+const unsub = () => { if (channel && sb) sb.removeChannel(channel); channel = null; };
+async function markClean(store, pushed) {
+  const cur = await tx(store, 'readonly', o => o.get(pushed.id)); if (!cur) return;
+  const k = x => JSON.stringify(store === 'boards' ? [x.name, x.sort_order] : [x.name, x.board_id, x.sort_order, x.start_sec ?? null, x.end_sec ?? null]);
+  if (k(cur) === k(pushed)) cur.dirty = false;          // edited again during upload? stay dirty
+  cur.synced = true; if (store === 'sounds') cur.uploaded = true; await dbPut(store, cur);
+}
+async function dropSound(l) { stopSound(l.id); media.delete(l.id); URL.revokeObjectURL(urls.get(l.storage_path)); urls.delete(l.storage_path); await dbDel('sounds', l.id); }
+
+async function sync() {
+  if (!group || !navigator.onLine) return renderSync();
+  if (syncing) return (again = true);
+  syncing = true; status = 'Syncing…'; renderSync();
+  try {
+    const c = await getSb(), gid = group.id, get = (s, id) => tx(s, 'readonly', o => o.get(id)); let changed = false;
+    /* 1. push deletions made while offline */
+    const t = tombs();
+    for (const s of t.sounds) { await c.storage.from(BUCKET).remove([`${gid}/${s.path}`]); const { error } = await c.from('sounds').delete().eq('id', s.id); if (error) throw error; }
+    for (const b of t.boards) { const { error } = await c.from('boards').delete().eq('id', b.id); if (error) throw error; }
+    const cur = tombs(); saveTombs({ boards: cur.boards.filter(x => !t.boards.some(y => y.id === x.id)), sounds: cur.sounds.filter(x => !t.sounds.some(y => y.id === x.id)) });
+    /* 2. pull remote changes */
+    const [rb, rs] = await Promise.all([c.from('boards').select('*').eq('group_id', gid), c.from('sounds').select('*').eq('group_id', gid)]);
+    if (rb.error || rs.error) throw (rb.error || rs.error);
+    const rbIds = new Set(rb.data.map(r => r.id)), rsIds = new Set(rs.data.map(r => r.id));
+    for (const r of rb.data) {
+      const l = await get('boards', r.id), n = { name: r.name, sort_order: r.sort_order || 0 };
+      if (!l) { await dbPut('boards', { id: r.id, ...n, created_at: Date.parse(r.created_at) || Date.now(), synced: true }); changed = true; }
+      else if (!l.dirty && (l.name !== n.name || l.sort_order !== n.sort_order)) { await dbPut('boards', Object.assign(l, n, { synced: true })); changed = true; }
+    }
+    for (const r of rs.data) {
+      const l = await get('sounds', r.id); if (!l) continue;
+      const n = { name: r.name, board_id: r.board_id, sort_order: r.sort_order || 0 }; if ('start_sec' in r) { n.start_sec = r.start_sec; n.end_sec = r.end_sec; }
+      if (!l.dirty && Object.keys(n).some(k => l[k] !== n[k] && !(l[k] == null && n[k] == null))) { await dbPut('sounds', Object.assign(l, n, { synced: true })); changed = true; }
+    }
+    for (const l of await dbAll('sounds')) if (l.synced && !l.dirty && !rsIds.has(l.id)) { await dropSound(l); changed = true; }   // deleted on another device
+    for (const l of await dbAll('boards')) if (l.synced && !l.dirty && !rbIds.has(l.id)) { await dbDel('boards', l.id); changed = true; }
+    if (changed) await reload();
+    for (const r of rs.data) {                                  // download new sounds so they work offline
+      if (await get('sounds', r.id)) continue;
+      const base = r.storage_path.split('/').pop(), ext = base.split('.').pop().toLowerCase();
+      const { data: u } = await c.storage.from(BUCKET).createSignedUrl(r.storage_path, 600); if (!u) continue;
+      const res = await fetch(u.signedUrl); if (!res.ok) continue;
+      let blob = await res.blob(); if (!blob.type || blob.type === 'application/octet-stream') blob = new Blob([blob], { type: mime(ext) });
+      await dbPut('sounds', { id: r.id, board_id: r.board_id, name: r.name, type: r.type || ext.toUpperCase(), storage_path: base, sort_order: r.sort_order || 0, created_at: Date.parse(r.created_at) || Date.now(), start_sec: r.start_sec ?? null, end_sec: r.end_sec ?? null, blob, synced: true, uploaded: true });
+      await reload();
+    }
+    /* 3. push local changes (boards first: sounds reference them) */
+    for (const l of await dbAll('boards')) if (l.dirty || !l.synced) {
+      const { error } = await c.from('boards').upsert({ id: l.id, group_id: gid, name: l.name, sort_order: l.sort_order || 0 }); if (error) throw error;
+      await markClean('boards', l);
+    }
+    for (const l of await dbAll('sounds')) if (l.dirty || !l.synced) {
+      const ext = l.storage_path.split('.').pop().toLowerCase();
+      if (!l.uploaded) { const { error } = await c.storage.from(BUCKET).upload(`${gid}/${l.storage_path}`, l.blob, { contentType: l.blob.type || mime(ext) }); if (error && !/exist|duplicate/i.test(error.message)) throw error; }
+      const row = { id: l.id, group_id: gid, board_id: l.board_id, name: l.name, type: l.type, storage_path: `${gid}/${l.storage_path}`, sort_order: l.sort_order || 0, start_sec: l.start_sec ?? null, end_sec: l.end_sec ?? null };
+      let { error } = await c.from('sounds').upsert(row);
+      if (error && /start_sec|end_sec|column/i.test(error.message)) { delete row.start_sec; delete row.end_sec; ({ error } = await c.from('sounds').upsert(row)); }
+      if (error) throw error; await markClean('sounds', l);
+    }
+    status = 'Synced ✓';
+  } catch (e) { console.error(e); status = 'Sync paused: ' + (e.message || e); }
+  syncing = false; renderSync(); if (again) { again = false; scheduleSync(); }
+}
+addEventListener('online', () => { if (group) { if (!channel) subscribe(); sync(); } renderSync(); });
+addEventListener('offline', renderSync);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && group) sync(); });
+setInterval(() => group && sync(), 30000);
+
 /* ---------- boot ---------- */
 navigator.storage?.persist?.();      // ask the browser not to evict saved sounds
-reload().catch(e => toast('Local storage unavailable: ' + e.message, 8000));
+reload().then(() => { renderSync(); if (group) { subscribe(); sync(); } }).catch(e => toast('Local storage unavailable: ' + e.message, 8000));
 </script>
 </body>
 </html>
