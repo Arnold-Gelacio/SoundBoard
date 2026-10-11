@@ -86,6 +86,10 @@ footer{margin-top:28px;font-size:11.5px;color:var(--faint);text-align:center;lin
 .mhint{font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5}
 .ghost{font-size:14px;padding:3px 9px;vertical-align:middle;text-transform:none;font-family:var(--body);font-weight:400}
 .board span.act{display:flex;gap:2px}.board .ren{color:var(--dim)}
+.pad.pinned{border-color:var(--amber)}
+.pad .acts .pin{filter:grayscale(1);opacity:.7}.pad.pinned .acts .pin{filter:none;opacity:1}
+.pad .media video:fullscreen{object-fit:contain;pointer-events:auto;background:#000}
+.pad .media video:-webkit-full-screen{object-fit:contain;pointer-events:auto;background:#000}
 @media(hover:none){.board .x,.pad .acts{opacity:1}}
 @media(max-width:720px){.app{flex-direction:column}.side{width:100%;height:auto;position:static;border:none;border-bottom:1px solid var(--line)}}
 </style>
@@ -275,7 +279,7 @@ function seekPad(s, e, bar) {
   if (!playing.has(s.id)) { if (mono) stopAll(s.id); m.el.volume = vol(); setPlaying(s.id, true); m.el.play().catch(() => setPlaying(s.id, false)); }
   paint(s.id);
 }
-const current = () => sounds.filter(s => s.board_id === activeBoard);
+const current = () => sounds.filter(s => s.board_id === activeBoard).sort((a, b) => !!b.pinned - !!a.pinned);   // pinned pads first
 function renderGrid() {
   const b = boards.find(b => b.id === activeBoard); if (!b) return;
   $('bTitle').textContent = b.name;
@@ -284,14 +288,20 @@ function renderGrid() {
   grid.innerHTML = '';
   list.forEach((s, i) => {
     const m = mediaFor(s), tr = getTrim(s), p = document.createElement('div');
-    p.className = 'pad' + (isVideo(s) ? ' hasvid' : '') + (playing.has(s.id) ? ' play' : ''); p.dataset.id = s.id;
-    p.innerHTML = `<div class="media"></div><div class="shade"></div><div class="top z"><span class="k">${i < 10 ? (i + 1) % 10 : ''}</span><span class="e">${s.type || 'AUDIO'}${tr.start || tr.end ? ' ✂' : ''}</span></div><div class="n z"></div><div class="t z"></div><div class="bar z"><i></i></div><div class="acts"><button class="cfg" title="Edit name & trim">✂</button><button class="d" title="Delete">✕</button></div>`;
+    p.className = 'pad' + (isVideo(s) ? ' hasvid' : '') + (playing.has(s.id) ? ' play' : '') + (s.pinned ? ' pinned' : ''); p.dataset.id = s.id;
+    p.innerHTML = `<div class="media"></div><div class="shade"></div><div class="top z"><span class="k">${i < 10 ? (i + 1) % 10 : ''}</span><span class="e">${s.pinned ? '📌 ' : ''}${s.type || 'AUDIO'}${tr.start || tr.end ? ' ✂' : ''}</span></div><div class="n z"></div><div class="t z"></div><div class="bar z"><i></i></div><div class="acts">${isVideo(s) ? '<button class="fs" title="Fullscreen">⛶</button>' : ''}<button class="pin" title="${s.pinned ? 'Unpin' : 'Pin to top'}">📌</button><button class="cfg" title="Edit name & trim">✂</button><button class="d" title="Delete">✕</button></div>`;
     p.querySelector('.n').textContent = s.name;
     if (m && m.vid) p.querySelector('.media').append(m.el);          // live video preview on the pad
     p.onclick = e => { if (e.target.closest('.bar,.acts')) return; fire(s, e.shiftKey); };
     const bar = p.querySelector('.bar');
     bar.onpointerdown = e => { e.stopPropagation(); bar.setPointerCapture(e.pointerId); seekPad(s, e, bar); bar.onpointermove = ev => seekPad(s, ev, bar); bar.onpointerup = () => bar.onpointermove = null; };
     p.querySelector('.cfg').onclick = e => { e.stopPropagation(); openEdit(s); };
+    p.querySelector('.pin').onclick = async e => { e.stopPropagation(); s.pinned = !s.pinned; await touch('sounds', s); reload(); };
+    p.querySelector('.fs')?.addEventListener('click', e => {
+      e.stopPropagation(); const m = mediaFor(s); if (!m) return;
+      if (!playing.has(s.id)) fire(s);
+      m.el.requestFullscreen ? m.el.requestFullscreen() : m.el.webkitEnterFullscreen?.();
+    });
     p.querySelector('.d').onclick = async e => {
       e.stopPropagation();
       if (!confirm(`Delete "${s.name}"?`)) return;
@@ -302,6 +312,8 @@ function renderGrid() {
     grid.append(p); paint(s.id);
   });
 }
+
+document.addEventListener('fullscreenchange', () => media.forEach(m => { if (m.vid) m.el.controls = document.fullscreenElement === m.el; }));   // native controls only while fullscreen
 
 /* ---------- edit / trim modal ---------- */
 let tm = null;
@@ -412,7 +424,7 @@ $('renameBtn').onclick = () => { const b = boards.find(x => x.id === activeBoard
 /* ---------- optional sync via Supabase (the app works fully without it / offline) ---------- */
 const SUPABASE_URL = 'https://txtgeumrmzktclxowkzg.supabase.co', SUPABASE_ANON_KEY = 'sb_publishable_Bd1tI_CvlSH6o2gTZ8XKhw_9ltX0k3D', BUCKET = 'sounds';
 /* OPTIONAL — to sync trim points too, run once in Supabase → SQL editor:
-   alter table public.sounds add column if not exists start_sec double precision, add column if not exists end_sec double precision; */
+   alter table public.sounds add column if not exists start_sec double precision, add column if not exists end_sec double precision, add column if not exists pinned boolean default false; */
 let sb = null, group = JSON.parse(localStorage.getItem('padboard_sync') || 'null'), channel = null, syncing = false, again = false, timer = 0, status = '';
 const mime = ext => ({ mp4: 'video/mp4', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', flac: 'audio/flac', aac: 'audio/aac' }[ext] || 'audio/mpeg');
 const loadJs = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('no connection')); document.head.append(s); });
@@ -467,7 +479,7 @@ async function subscribe() {
 const unsub = () => { if (channel && sb) sb.removeChannel(channel); channel = null; };
 async function markClean(store, pushed) {
   const cur = await tx(store, 'readonly', o => o.get(pushed.id)); if (!cur) return;
-  const k = x => JSON.stringify(store === 'boards' ? [x.name, x.sort_order] : [x.name, x.board_id, x.sort_order, x.start_sec ?? null, x.end_sec ?? null]);
+  const k = x => JSON.stringify(store === 'boards' ? [x.name, x.sort_order] : [x.name, x.board_id, x.sort_order, x.start_sec ?? null, x.end_sec ?? null, !!x.pinned]);
   if (k(cur) === k(pushed)) cur.dirty = false;          // edited again during upload? stay dirty
   cur.synced = true; if (store === 'sounds') cur.uploaded = true; await dbPut(store, cur);
 }
@@ -495,7 +507,7 @@ async function sync() {
     }
     for (const r of rs.data) {
       const l = await get('sounds', r.id); if (!l) continue;
-      const n = { name: r.name, board_id: r.board_id, sort_order: r.sort_order || 0 }; if ('start_sec' in r) { n.start_sec = r.start_sec; n.end_sec = r.end_sec; }
+      const n = { name: r.name, board_id: r.board_id, sort_order: r.sort_order || 0 }; if ('start_sec' in r) { n.start_sec = r.start_sec; n.end_sec = r.end_sec; } if ('pinned' in r) n.pinned = !!r.pinned;
       if (!l.dirty && Object.keys(n).some(k => l[k] !== n[k] && !(l[k] == null && n[k] == null))) { await dbPut('sounds', Object.assign(l, n, { synced: true })); changed = true; }
     }
     for (const l of await dbAll('sounds')) if (l.synced && !l.dirty && !rsIds.has(l.id)) { await dropSound(l); changed = true; }   // deleted on another device
@@ -507,7 +519,7 @@ async function sync() {
       const { data: u } = await c.storage.from(BUCKET).createSignedUrl(r.storage_path, 600); if (!u) continue;
       const res = await fetch(u.signedUrl); if (!res.ok) continue;
       let blob = await res.blob(); if (!blob.type || blob.type === 'application/octet-stream') blob = new Blob([blob], { type: mime(ext) });
-      await dbPut('sounds', { id: r.id, board_id: r.board_id, name: r.name, type: r.type || ext.toUpperCase(), storage_path: base, sort_order: r.sort_order || 0, created_at: Date.parse(r.created_at) || Date.now(), start_sec: r.start_sec ?? null, end_sec: r.end_sec ?? null, blob, synced: true, uploaded: true });
+      await dbPut('sounds', { id: r.id, board_id: r.board_id, name: r.name, type: r.type || ext.toUpperCase(), storage_path: base, sort_order: r.sort_order || 0, created_at: Date.parse(r.created_at) || Date.now(), start_sec: r.start_sec ?? null, end_sec: r.end_sec ?? null, pinned: !!r.pinned, blob, synced: true, uploaded: true });
       await reload();
     }
     /* 3. push local changes (boards first: sounds reference them) */
@@ -518,9 +530,9 @@ async function sync() {
     for (const l of await dbAll('sounds')) if (l.dirty || !l.synced) {
       const ext = l.storage_path.split('.').pop().toLowerCase();
       if (!l.uploaded) { const { error } = await c.storage.from(BUCKET).upload(`${gid}/${l.storage_path}`, l.blob, { contentType: l.blob.type || mime(ext) }); if (error && !/exist|duplicate/i.test(error.message)) throw error; }
-      const row = { id: l.id, group_id: gid, board_id: l.board_id, name: l.name, type: l.type, storage_path: `${gid}/${l.storage_path}`, sort_order: l.sort_order || 0, start_sec: l.start_sec ?? null, end_sec: l.end_sec ?? null };
+      const row = { id: l.id, group_id: gid, board_id: l.board_id, name: l.name, type: l.type, storage_path: `${gid}/${l.storage_path}`, sort_order: l.sort_order || 0, start_sec: l.start_sec ?? null, end_sec: l.end_sec ?? null, pinned: !!l.pinned };
       let { error } = await c.from('sounds').upsert(row);
-      if (error && /start_sec|end_sec|column/i.test(error.message)) { delete row.start_sec; delete row.end_sec; ({ error } = await c.from('sounds').upsert(row)); }
+      if (error && /start_sec|end_sec|pinned|column/i.test(error.message)) { delete row.start_sec; delete row.end_sec; delete row.pinned; ({ error } = await c.from('sounds').upsert(row)); }
       if (error) throw error; await markClean('sounds', l);
     }
     status = 'Synced ✓';
