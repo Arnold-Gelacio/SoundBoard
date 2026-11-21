@@ -1,0 +1,2016 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Padboard — soundboard</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#120e09" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #120e09;
+        --panel: #231b12;
+        --raised: #2f2518;
+        --ink: #f4ead9;
+        --dim: #9c8d74;
+        --faint: #6c5f4c;
+        --amber: #f0993f;
+        --glow: rgba(240, 153, 63, 0.55);
+        --rose: #c9695c;
+        --line: #3c3122;
+        --side: #0d0a06;
+        --disp: "Big Shoulders Display", sans-serif;
+        --body: "IBM Plex Sans", system-ui, sans-serif;
+        --mono: "IBM Plex Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--body);
+        min-height: 100vh;
+      }
+      button {
+        font: inherit;
+        color: var(--ink);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--raised);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .primary {
+        background: linear-gradient(#f6aa57, #ee943a);
+        color: #2a1a07;
+        font-weight: 600;
+        border-color: transparent;
+      }
+      .primary:hover {
+        filter: brightness(1.07);
+        background: linear-gradient(#f6aa57, #ee943a);
+      }
+      .eyebrow {
+        font: 500 11px var(--mono);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--amber);
+      }
+      .dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--amber);
+        box-shadow: 0 0 8px var(--glow);
+        margin-right: 8px;
+      }
+      h1 {
+        font-family: var(--disp);
+        font-weight: 900;
+        text-transform: uppercase;
+        margin: 6px 0;
+      }
+      .gate {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 10;
+        background: var(--bg);
+      }
+      .card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 36px 32px;
+        text-align: center;
+      }
+      .card h1 {
+        font-size: 40px;
+      }
+      .card p {
+        color: var(--dim);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      #codeInput {
+        width: 100%;
+        margin: 14px 0 10px;
+        padding: 18px;
+        background: #0b0806;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--ink);
+        font: 600 24px var(--mono);
+        letter-spacing: 0.5em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+      #codeInput:focus {
+        outline: 2px solid var(--amber);
+      }
+      .card button {
+        width: 100%;
+      }
+      .err {
+        color: var(--rose);
+        font-size: 13px;
+        min-height: 18px;
+        margin: 8px 0;
+      }
+      .or {
+        color: var(--faint);
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        margin: 14px 0;
+      }
+      #newCode {
+        display: none;
+        margin-top: 16px;
+        padding: 14px;
+        border: 1px dashed var(--amber);
+        border-radius: 10px;
+        color: var(--dim);
+        font-size: 13px;
+      }
+      #newCode b {
+        display: block;
+        font: 600 28px var(--mono);
+        letter-spacing: 0.3em;
+        color: var(--amber);
+        margin-top: 6px;
+      }
+      .app {
+        display: flex;
+        min-height: 100vh;
+      }
+      .side {
+        width: 260px;
+        background: var(--side);
+        border-right: 1px solid var(--line);
+        padding: 20px 16px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+        flex-shrink: 0;
+      }
+      .side h2 {
+        font: 500 11px var(--mono);
+        letter-spacing: 0.25em;
+        color: var(--faint);
+        text-transform: uppercase;
+      }
+      .gbox {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 16px;
+      }
+      .gname {
+        font: 700 20px var(--disp);
+        text-transform: uppercase;
+      }
+      .gcode {
+        font: 12px var(--mono);
+        color: var(--dim);
+      }
+      .gcode span {
+        color: var(--amber);
+      }
+      [contenteditable="true"] {
+        outline: 1px solid var(--amber);
+        border-radius: 4px;
+        padding: 0 3px;
+        text-transform: none;
+      }
+      .gbox button {
+        width: 100%;
+        margin-top: 10px;
+        font-size: 12px;
+        padding: 6px;
+      }
+      .board {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        color: var(--dim);
+        margin-bottom: 4px;
+      }
+      .board:hover {
+        background: var(--panel);
+      }
+      .board.on {
+        background: var(--raised);
+        color: var(--ink);
+        box-shadow: inset 3px 0 var(--amber);
+      }
+      .board .x {
+        opacity: 0;
+        color: var(--rose);
+        background: none;
+        border: none;
+        padding: 0 4px;
+      }
+      .board:hover .x {
+        opacity: 1;
+      }
+      .main {
+        flex: 1;
+        padding: 28px;
+        min-width: 0;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 24px;
+      }
+      header h1 {
+        font-size: 44px;
+        margin: 4px 0;
+      }
+      header p {
+        margin: 0;
+        color: var(--dim);
+        font-size: 13px;
+      }
+      .ctl {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .vol {
+        font: 12px var(--mono);
+        color: var(--dim);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      input[type="range"] {
+        accent-color: var(--amber);
+      }
+      #loopBtn.on {
+        border-color: var(--amber);
+        color: var(--amber);
+      }
+      #grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 14px;
+      }
+      .pad {
+        position: relative;
+        aspect-ratio: 1;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+        transition:
+          transform 0.08s,
+          box-shadow 0.15s;
+      }
+      .pad:hover {
+        background: var(--raised);
+      }
+      .pad:active {
+        transform: scale(0.97);
+      }
+      .pad.play {
+        border-color: var(--amber);
+        box-shadow: 0 0 22px var(--glow);
+      }
+      .pad .k {
+        font: 11px var(--mono);
+        color: var(--faint);
+      }
+      .pad .e {
+        font: 11px var(--mono);
+        color: var(--amber);
+      }
+      .pad .n {
+        font: 700 20px/1.05 var(--disp);
+        text-transform: uppercase;
+        word-break: break-word;
+        max-height: 3.3em;
+        overflow: hidden;
+      }
+      .pad .d {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        opacity: 0;
+        padding: 2px 8px;
+        color: var(--rose);
+      }
+      .pad:hover .d {
+        opacity: 1;
+      }
+      .empty {
+        text-align: center;
+        padding: 70px 20px;
+        border: 2px dashed var(--line);
+        border-radius: 20px;
+        color: var(--dim);
+      }
+      .empty h3 {
+        font: 700 26px var(--disp);
+        color: var(--ink);
+        text-transform: uppercase;
+      }
+      .drag {
+        outline: 2px dashed var(--amber);
+        outline-offset: -10px;
+      }
+      #toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--raised);
+        border: 1px solid var(--amber);
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-size: 13px;
+        display: none;
+        z-index: 20;
+      }
+      footer {
+        margin-top: 28px;
+        font-size: 11.5px;
+        color: var(--faint);
+        text-align: center;
+        line-height: 1.7;
+      }
+      #grid {
+        grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+      }
+      .pad {
+        overflow: hidden;
+        gap: 6px;
+      }
+      .pad .media {
+        position: absolute;
+        inset: 0;
+        background: #000;
+      }
+      .pad .media video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        pointer-events: none;
+      }
+      .pad .shade {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          rgba(10, 7, 4, 0.6),
+          transparent 40%,
+          rgba(10, 7, 4, 0.88)
+        );
+        pointer-events: none;
+      }
+      .pad.hasvid .shade {
+        display: block;
+      }
+      .pad.hasvid .n {
+        text-shadow: 0 1px 6px #000;
+      }
+      .z {
+        position: relative;
+        z-index: 2;
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+      }
+      .pad .t {
+        font: 11px var(--mono);
+        color: var(--dim);
+      }
+      .pad.play .t {
+        color: var(--amber);
+      }
+      .pad .bar {
+        height: 14px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+      }
+      .pad .bar::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 2px;
+      }
+      .pad .bar i {
+        position: relative;
+        display: block;
+        height: 4px;
+        width: 0;
+        background: var(--amber);
+        border-radius: 2px;
+      }
+      .pad .acts {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 3;
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+      }
+      .pad:hover .acts {
+        opacity: 1;
+      }
+      .pad .acts button {
+        position: static;
+        opacity: 1;
+        padding: 2px 8px;
+        background: rgba(18, 14, 9, 0.85);
+      }
+      .pad .acts .d {
+        color: var(--rose);
+      }
+      #monoBtn.on {
+        border-color: var(--amber);
+        color: var(--amber);
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.72);
+        z-index: 30;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .modal.open {
+        display: flex;
+      }
+      .mcard {
+        width: 100%;
+        max-width: 480px;
+        max-height: 96vh;
+        overflow: auto;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 22px;
+      }
+      .mcard h2 {
+        font: 900 26px var(--disp);
+        text-transform: uppercase;
+        margin: 0 0 12px;
+      }
+      .mcard input[type="text"] {
+        width: 100%;
+        padding: 9px 10px;
+        background: #0b0806;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        font: 500 14px var(--mono);
+      }
+      .mcard input[type="range"] {
+        width: 100%;
+        margin: 6px 0;
+      }
+      .tmvid {
+        width: 100%;
+        max-height: 230px;
+        background: #000;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        display: block;
+      }
+      .strip {
+        position: relative;
+        height: 10px;
+        background: var(--raised);
+        border-radius: 5px;
+        margin-top: 10px;
+      }
+      .strip i {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: var(--amber);
+        opacity: 0.55;
+        border-radius: 5px;
+      }
+      .strip b {
+        position: absolute;
+        top: -3px;
+        bottom: -3px;
+        width: 2px;
+        background: var(--ink);
+      }
+      .mrow {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        margin: 8px 0;
+        font: 12px var(--mono);
+        color: var(--dim);
+      }
+      .mgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 10px 0;
+      }
+      .mgrid label {
+        font: 11px var(--mono);
+        color: var(--faint);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .mgrid button {
+        font-size: 12px;
+        padding: 6px;
+      }
+      .mbtns {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 14px;
+      }
+      .mbtns .sp {
+        flex: 1;
+      }
+      .mhint {
+        font-size: 11.5px;
+        color: var(--faint);
+        margin-top: 10px;
+        line-height: 1.5;
+      }
+      .ghost {
+        font-size: 14px;
+        padding: 3px 9px;
+        vertical-align: middle;
+        text-transform: none;
+        font-family: var(--body);
+        font-weight: 400;
+      }
+      .board span.act {
+        display: flex;
+        gap: 2px;
+      }
+      .board .ren {
+        color: var(--dim);
+      }
+      .pad.pinned {
+        border-color: var(--amber);
+      }
+      .pad .acts .pin {
+        filter: grayscale(1);
+        opacity: 0.7;
+      }
+      .pad.pinned .acts .pin {
+        filter: none;
+        opacity: 1;
+      }
+      .pad .media video:fullscreen {
+        object-fit: contain;
+        pointer-events: auto;
+        background: #000;
+      }
+      .pad .media video:-webkit-full-screen {
+        object-fit: contain;
+        pointer-events: auto;
+        background: #000;
+      }
+      .pad[draggable="true"] {
+        cursor: grab;
+      }
+      .pad.dragging {
+        opacity: 0.35;
+        transform: scale(0.96);
+      }
+      .pad.drop-before {
+        box-shadow: -8px 0 0 -1px var(--amber);
+      }
+      .pad.drop-after {
+        box-shadow: 8px 0 0 -1px var(--amber);
+      }
+      .board.dropping {
+        background: var(--raised);
+        box-shadow: inset 0 0 0 2px var(--amber);
+        color: var(--ink);
+      }
+      body.padDrag .board:not(.on) {
+        outline: 1px dashed var(--faint);
+        outline-offset: -3px;
+      }
+      @media (hover: none) {
+        .board .x,
+        .pad .acts {
+          opacity: 1;
+        }
+      }
+      @media (max-width: 720px) {
+        .app {
+          flex-direction: column;
+        }
+        .side {
+          width: 100%;
+          height: auto;
+          position: static;
+          border: none;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <aside class="side">
+        <h2>Soundboards</h2>
+        <div id="boards"></div>
+        <button id="newBoardBtn" style="width: 100%; margin-top: 10px">
+          + New soundboard
+        </button>
+        <div class="gbox" style="margin-top: 22px">
+          <div class="eyebrow" style="font-size: 9px">Sync</div>
+          <div
+            id="syncStat"
+            class="gcode"
+            style="margin: 6px 0; line-height: 1.5"
+          ></div>
+          <div id="syncBtns"></div>
+        </div>
+      </aside>
+      <main class="main" id="main">
+        <header>
+          <div>
+            <div>
+              <span class="dot"></span><span class="eyebrow">Padboard</span>
+            </div>
+            <h1>
+              <span id="bTitle">Board</span>
+              <button
+                class="ghost"
+                id="renameBtn"
+                title="Rename this soundboard"
+              >
+                ✎ Rename
+              </button>
+            </h1>
+            <p>
+              Click a pad to play it, click again to stop. Drag a pad's bar to
+              jump around. Drag a pad itself to reorder it, or drop it on
+              another soundboard in the sidebar to move it. Saved on this
+              device, works offline, and syncs across devices when sync is on.
+            </p>
+          </div>
+          <div class="ctl">
+            <label class="vol"
+              >VOL <input id="vol" type="range" min="0" max="100" value="80"
+            /></label>
+            <button id="loopBtn">↻ Loop</button>
+            <button id="monoBtn" title="Only one pad plays at a time">
+              ◉ Solo
+            </button>
+            <button id="stopBtn">Stop all</button>
+
+            <button id="importBtn" class="primary">+ Import sounds</button>
+          </div>
+        </header>
+        <div class="empty" id="empty">
+          <h3>No sounds yet on this board</h3>
+          <p>Drag audio or MP4 files here, or use Import.</p>
+        </div>
+        <div id="grid" style="display: none"></div>
+        <footer>
+          Keys <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> fire the first 10 pads ·
+          drag pads to reorder or onto a board in the sidebar · hover a pad for
+          ✂ edit (rename, start/end) and delete · <kbd>Shift</kbd>+click
+          restarts · <kbd>Space</kbd> stops all · works offline, syncs when
+          online
+        </footer>
+      </main>
+    </div>
+    <input
+      type="file"
+      id="file"
+      accept="audio/*,video/mp4,.mp4"
+      multiple
+      hidden
+    />
+    <div class="modal" id="modal">
+      <div class="mcard">
+        <h2>Edit pad</h2>
+        <input type="text" id="tmName" placeholder="Name" />
+        <div id="tmMedia" style="margin-top: 12px"></div>
+        <div class="strip"><i id="tmSel"></i><b id="tmHead"></b></div>
+        <input type="range" id="tmSeek" min="0" max="1" step="0.01" value="0" />
+        <div class="mrow">
+          <button id="tmPlay">▶ Preview</button
+          ><span id="tmPos">0:00.0 / 0:00.0</span>
+        </div>
+        <div class="mgrid">
+          <label
+            >Start<input type="text" id="tmStart" /><button id="tmSetStart">
+              Set from playhead
+            </button></label
+          >
+          <label
+            >End<input type="text" id="tmEnd" /><button id="tmSetEnd">
+              Set from playhead
+            </button></label
+          >
+        </div>
+        <div class="mbtns">
+          <button id="tmReset">Reset trim</button><span class="sp"></span
+          ><button id="tmCancel">Cancel</button
+          ><button class="primary" id="tmSave">Save</button>
+        </div>
+        <div class="mhint">
+          Drag the slider to find the moment, then set it as start or end. You
+          can also type a time like 1:23.5. Pads play only the trimmed section.
+        </div>
+      </div>
+    </div>
+    <div id="toast"></div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const toast = (m, ms = 2500) => {
+        const t = $("toast");
+        t.textContent = m;
+        t.style.display = "block";
+        clearTimeout(toast.t);
+        if (ms) toast.t = setTimeout(() => (t.style.display = "none"), ms);
+      };
+
+      /* ---------- state ---------- */
+      let boards = [],
+        sounds = [],
+        activeBoard = localStorage.getItem("padboard_board");
+      const urls = new Map(); // storage_path -> object URL (from the locally stored file)
+      let loop = localStorage.getItem("padboard_loop") === "1";
+
+      function editable(el, save) {
+        el.addEventListener("dblclick", () => {
+          el.contentEditable = true;
+          el.focus();
+          getSelection().selectAllChildren(el);
+        });
+        const done = async () => {
+          if (el.contentEditable !== "true") return;
+          el.contentEditable = false;
+          await save(el.textContent.trim());
+        };
+        el.addEventListener("blur", done);
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            el.blur();
+          }
+        });
+      }
+
+      /* ---------- local storage (IndexedDB: files + settings, works offline) ---------- */
+      const dbp = new Promise((res, rej) => {
+        const r = indexedDB.open("padboard", 1);
+        r.onupgradeneeded = () => {
+          r.result.createObjectStore("boards", { keyPath: "id" });
+          r.result.createObjectStore("sounds", { keyPath: "id" });
+        };
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      const tx = async (store, mode, fn) => {
+        const db = await dbp;
+        return new Promise((res, rej) => {
+          const t = db.transaction(store, mode),
+            r = fn(t.objectStore(store));
+          t.oncomplete = () => res(r && r.result);
+          t.onerror = t.onabort = () => rej(t.error);
+        });
+      };
+      const dbAll = (s) => tx(s, "readonly", (o) => o.getAll());
+      const dbPut = (s, v) => tx(s, "readwrite", (o) => o.put(v));
+      const dbDel = (s, id) => tx(s, "readwrite", (o) => o.delete(id));
+      const byOrder = (a, b) =>
+        a.sort_order - b.sort_order || a.created_at - b.created_at;
+
+      async function reload() {
+        boards = (await dbAll("boards")).sort(byOrder);
+        sounds = (await dbAll("sounds")).sort(byOrder);
+        if (!boards.length) {
+          const b = {
+            id: crypto.randomUUID(),
+            name: "Board 1",
+            sort_order: 0,
+            created_at: Date.now(),
+          };
+          await dbPut("boards", b);
+          boards = [b];
+        }
+        if (!boards.find((x) => x.id === activeBoard))
+          activeBoard = boards[0].id;
+        sounds.forEach((s) => {
+          if (!urls.has(s.storage_path))
+            urls.set(s.storage_path, URL.createObjectURL(s.blob));
+        });
+        renderBoards();
+        renderGrid();
+      }
+
+      /* ---------- boards ---------- */
+      function renderBoards() {
+        const el = $("boards");
+        el.innerHTML = "";
+        boards.forEach((b) => {
+          const d = document.createElement("div");
+          d.className = "board" + (b.id === activeBoard ? " on" : "");
+          const n = document.createElement("span");
+          n.textContent = b.name;
+          d.onclick = () => {
+            activeBoard = b.id;
+            localStorage.setItem("padboard_board", b.id);
+            renderBoards();
+            renderGrid();
+          };
+          editable(n, async (v) => {
+            if (v && v !== b.name) {
+              b.name = v;
+              await touch("boards", b);
+              reload();
+            } else n.textContent = b.name;
+          });
+          const x = document.createElement("button");
+          x.className = "x";
+          x.textContent = "✕";
+          x.title = "Delete board";
+          x.onclick = async (e) => {
+            e.stopPropagation();
+            if (boards.length < 2) return toast("You need at least one board.");
+            if (!confirm(`Delete "${b.name}" and all its sounds?`)) return;
+            for (const s of sounds.filter((s) => s.board_id === b.id)) {
+              stopSound(s.id);
+              media.delete(s.id);
+              URL.revokeObjectURL(urls.get(s.storage_path));
+              urls.delete(s.storage_path);
+              tomb("sounds", s);
+              await dbDel("sounds", s.id);
+            }
+            tomb("boards", b);
+            await dbDel("boards", b.id);
+            reload();
+          };
+          const r = document.createElement("button");
+          r.className = "x ren";
+          r.textContent = "✎";
+          r.title = "Rename board";
+          r.onclick = (e) => {
+            e.stopPropagation();
+            renameBoard(b);
+          };
+          const act = document.createElement("span");
+          act.className = "act";
+          act.append(r, x);
+          d.append(n, act);
+          el.append(d);
+          /* drop a dragged pad onto another board to move it there (it goes to the end of that board) */
+          d.addEventListener("dragover", (e) => {
+            if (!dragId || b.id === activeBoard) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            d.classList.add("dropping");
+          });
+          d.addEventListener("dragleave", (e) => {
+            if (!d.contains(e.relatedTarget)) d.classList.remove("dropping");
+          });
+          d.addEventListener("drop", (e) => {
+            if (!dragId || b.id === activeBoard) return;
+            e.preventDefault();
+            const id = dragId;
+            endDrag();
+            movePad(id, b.id, null);
+          });
+        });
+      }
+      $("newBoardBtn").onclick = async () => {
+        const b = {
+          id: crypto.randomUUID(),
+          name: `Board ${boards.length + 1}`,
+          sort_order: boards.length,
+          created_at: Date.now(),
+        };
+        await touch("boards", b);
+        activeBoard = b.id;
+        localStorage.setItem("padboard_board", b.id);
+        reload();
+      };
+
+      /* ---------- pads ---------- */
+      const vol = () => $("vol").value / 100;
+      const media = new Map(),
+        playing = new Set();
+      let mono = localStorage.getItem("padboard_mono") === "1",
+        raf = 0;
+      const byId = (id) => sounds.find((x) => x.id === id),
+        padEl = (id) => document.querySelector(`.pad[data-id="${id}"]`);
+      const isVideo = (s) => /\.mp4$/i.test(s.storage_path);
+      const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+      const fmt = (t) => {
+        t = Math.max(0, t || 0);
+        return Math.floor(t / 60) + ":" + (t % 60).toFixed(1).padStart(4, "0");
+      };
+      const localTrims = () => {
+        try {
+          return JSON.parse(localStorage.getItem("padboard_trims") || "{}");
+        } catch {
+          return {};
+        }
+      };
+      function getTrim(s) {
+        if (s.start_sec != null || s.end_sec != null)
+          return { start: s.start_sec || 0, end: s.end_sec };
+        const l = localTrims()[s.id];
+        return l
+          ? { start: l.start || 0, end: l.end }
+          : { start: 0, end: null };
+      }
+      function rangeOf(s) {
+        const el = media.get(s.id)?.el,
+          dur = el && isFinite(el.duration) ? el.duration : null,
+          t = getTrim(s),
+          start = clamp(t.start || 0, 0, dur ?? 1e9);
+        return {
+          start,
+          end:
+            t.end && t.end > start ? (dur ? Math.min(t.end, dur) : t.end) : dur,
+          dur,
+        };
+      }
+      function mediaFor(s) {
+        const url = urls.get(s.storage_path);
+        if (!url) return null;
+        let m = media.get(s.id);
+        if (!m || m.url !== url) {
+          if (m) m.el.pause();
+          const vid = isVideo(s),
+            el = document.createElement(vid ? "video" : "audio"),
+            id = s.id;
+          el.preload = "metadata";
+          if (vid) {
+            el.playsInline = true;
+            el.disablePictureInPicture = true;
+          }
+          el.src = vid ? url + "#t=0.1" : url;
+          el.onloadedmetadata = () => {
+            const x = byId(id);
+            if (x && !playing.has(id)) el.currentTime = rangeOf(x).start;
+            paint(id);
+          };
+          el.onended = () => {
+            const x = byId(id);
+            if (loop && x) {
+              el.currentTime = rangeOf(x).start;
+              el.play();
+            } else stopSound(id);
+          };
+          el.onpause = () => {
+            if (el.paused && !el.ended && playing.has(id))
+              setPlaying(id, false);
+          };
+          m = { el, url, vid };
+          media.set(s.id, m);
+        }
+        return m;
+      }
+      function paint(id) {
+        const s = byId(id),
+          pad = padEl(id),
+          m = media.get(id);
+        if (!s || !pad || !m) return;
+        const r = rangeOf(s),
+          len = r.end ? r.end - r.start : 0,
+          on = playing.has(id),
+          t = on ? clamp(m.el.currentTime - r.start, 0, len) : 0;
+        pad.querySelector(".bar i").style.width =
+          (len ? (t / len) * 100 : 0) + "%";
+        pad.querySelector(".t").textContent = len
+          ? (on ? fmt(t) + " / " : "") + fmt(len)
+          : "–";
+      }
+      function setPlaying(id, on) {
+        on ? playing.add(id) : playing.delete(id);
+        padEl(id)?.classList.toggle("play", on);
+        if (on) {
+          if (!raf) raf = requestAnimationFrame(tick);
+        } else paint(id);
+      }
+      function tick() {
+        raf = 0;
+        [...playing].forEach((id) => {
+          const s = byId(id),
+            m = media.get(id);
+          if (!s || !m) return playing.delete(id);
+          const r = rangeOf(s);
+          if (r.end && m.el.currentTime >= r.end - 0.03) {
+            if (loop) m.el.currentTime = r.start;
+            else return stopSound(id);
+          }
+          paint(id);
+        });
+        if (playing.size) raf = requestAnimationFrame(tick);
+      }
+      function stopSound(id) {
+        const m = media.get(id),
+          s = byId(id);
+        if (!m) return;
+        m.el.pause();
+        m.el.currentTime = s ? rangeOf(s).start : 0;
+        setPlaying(id, false);
+      }
+      function stopAll(except) {
+        [...playing].forEach((id) => id !== except && stopSound(id));
+      }
+      function fire(s, restart) {
+        const m = mediaFor(s);
+        if (!m) return toast("Still loading that sound…");
+        if (playing.has(s.id) && !restart) return stopSound(s.id); // click a playing pad = stop
+        if (mono) stopAll(s.id);
+        m.el.volume = vol();
+        m.el.currentTime = rangeOf(s).start;
+        setPlaying(s.id, true);
+        m.el.play().catch(() => setPlaying(s.id, false));
+      }
+      function seekPad(s, e, bar) {
+        const m = mediaFor(s);
+        if (!m) return;
+        const r = rangeOf(s);
+        if (!r.end) return;
+        const q = bar.getBoundingClientRect(),
+          f = clamp((e.clientX - q.left) / q.width, 0, 1);
+        m.el.currentTime = r.start + f * (r.end - r.start);
+        if (!playing.has(s.id)) {
+          if (mono) stopAll(s.id);
+          m.el.volume = vol();
+          setPlaying(s.id, true);
+          m.el.play().catch(() => setPlaying(s.id, false));
+        }
+        paint(s.id);
+      }
+      const current = () =>
+        sounds
+          .filter((s) => s.board_id === activeBoard)
+          .sort((a, b) => !!b.pinned - !!a.pinned); // pinned pads first
+      function renderGrid() {
+        const b = boards.find((b) => b.id === activeBoard);
+        if (!b) return;
+        $("bTitle").textContent = b.name;
+        const list = current(),
+          grid = $("grid");
+        $("empty").style.display = list.length ? "none" : "block";
+        grid.style.display = list.length ? "grid" : "none";
+        grid.innerHTML = "";
+        list.forEach((s, i) => {
+          const m = mediaFor(s),
+            tr = getTrim(s),
+            p = document.createElement("div");
+          p.className =
+            "pad" +
+            (isVideo(s) ? " hasvid" : "") +
+            (playing.has(s.id) ? " play" : "") +
+            (s.pinned ? " pinned" : "");
+          p.dataset.id = s.id;
+          p.draggable = true;
+          p.innerHTML = `<div class="media"></div><div class="shade"></div><div class="top z"><span class="k">${i < 10 ? (i + 1) % 10 : ""}</span><span class="e">${s.pinned ? "📌 " : ""}${s.type || "AUDIO"}${tr.start || tr.end ? " ✂" : ""}</span></div><div class="n z"></div><div class="t z"></div><div class="bar z"><i></i></div><div class="acts">${isVideo(s) ? '<button class="fs" title="Fullscreen">⛶</button>' : ""}<button class="pin" title="${s.pinned ? "Unpin" : "Pin to top"}">📌</button><button class="cfg" title="Edit name & trim">✂</button><button class="d" title="Delete">✕</button></div>`;
+          p.querySelector(".n").textContent = s.name;
+          if (m && m.vid) p.querySelector(".media").append(m.el); // live video preview on the pad
+          p.onclick = (e) => {
+            if (e.target.closest(".bar,.acts")) return;
+            fire(s, e.shiftKey);
+          };
+          p.addEventListener("dragstart", (e) => {
+            dragId = s.id;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", s.id);
+            setTimeout(() => {
+              p.classList.add("dragging");
+              document.body.classList.add("padDrag");
+            }, 0);
+          });
+          p.addEventListener("dragend", endDrag);
+          const bar = p.querySelector(".bar");
+          bar.onpointerdown = (e) => {
+            e.stopPropagation();
+            p.draggable = false;
+            const back = () => {
+              p.draggable = true;
+              removeEventListener("pointerup", back);
+              removeEventListener("pointercancel", back);
+            };
+            addEventListener("pointerup", back);
+            addEventListener("pointercancel", back);
+            bar.setPointerCapture(e.pointerId);
+            seekPad(s, e, bar);
+            bar.onpointermove = (ev) => seekPad(s, ev, bar);
+            bar.onpointerup = () => (bar.onpointermove = null);
+          };
+          p.querySelector(".cfg").onclick = (e) => {
+            e.stopPropagation();
+            openEdit(s);
+          };
+          p.querySelector(".pin").onclick = async (e) => {
+            e.stopPropagation();
+            s.pinned = !s.pinned;
+            await touch("sounds", s);
+            reload();
+          };
+          p.querySelector(".fs")?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const m = mediaFor(s);
+            if (!m) return;
+            if (!playing.has(s.id)) fire(s);
+            m.el.requestFullscreen
+              ? m.el.requestFullscreen()
+              : m.el.webkitEnterFullscreen?.();
+          });
+          p.querySelector(".d").onclick = async (e) => {
+            e.stopPropagation();
+            if (!confirm(`Delete "${s.name}"?`)) return;
+            stopSound(s.id);
+            media.delete(s.id);
+            URL.revokeObjectURL(urls.get(s.storage_path));
+            urls.delete(s.storage_path);
+            tomb("sounds", s);
+            await dbDel("sounds", s.id);
+            reload();
+          };
+          grid.append(p);
+          paint(s.id);
+        });
+      }
+
+      document.addEventListener("fullscreenchange", () =>
+        media.forEach((m) => {
+          if (m.vid) m.el.controls = document.fullscreenElement === m.el;
+        }),
+      ); // native controls only while fullscreen
+
+      /* ---------- drag & drop: reorder pads, or move them to another board ---------- */
+      let dragId = null,
+        dropPos = null; // dropPos = { before: id of the pad to insert in front of, or null for the end }
+      function clearDrop() {
+        document
+          .querySelectorAll(".drop-before,.drop-after")
+          .forEach((e) => e.classList.remove("drop-before", "drop-after"));
+      }
+      function endDrag() {
+        dragId = null;
+        dropPos = null;
+        clearDrop();
+        document.body.classList.remove("padDrag");
+        $("main").classList.remove("drag");
+        document
+          .querySelectorAll(".pad.dragging")
+          .forEach((e) => e.classList.remove("dragging"));
+        document
+          .querySelectorAll(".board.dropping")
+          .forEach((e) => e.classList.remove("dropping"));
+      }
+      function locate(x, y) {
+        // which pad is the pointer closest to, and on which side of it?
+        const pads = [...$("grid").querySelectorAll(".pad")].filter(
+          (p) => p.dataset.id !== dragId,
+        );
+        if (!pads.length) return { before: null };
+        const rects = pads.map((p) => p.getBoundingClientRect());
+        if (y > Math.max(...rects.map((r) => r.bottom)))
+          return { before: null, ref: pads.at(-1), after: true };
+        let best = 0,
+          bd = Infinity;
+        rects.forEach((r, i) => {
+          const dx = x - (r.left + r.width / 2),
+            dy = y - (r.top + r.height / 2),
+            d = dx * dx + dy * dy * 2;
+          if (d < bd) {
+            bd = d;
+            best = i;
+          }
+        });
+        const after = x > rects[best].left + rects[best].width / 2;
+        return {
+          ref: pads[best],
+          after,
+          before: after
+            ? (pads[best + 1]?.dataset.id ?? null)
+            : pads[best].dataset.id,
+        };
+      }
+      async function movePad(id, boardId, beforeId) {
+        const s = byId(id);
+        if (!s) return;
+        const moved = s.board_id !== boardId,
+          target =
+            boardId === activeBoard
+              ? current()
+              : sounds
+                  .filter((x) => x.board_id === boardId)
+                  .sort((a, b) => !!b.pinned - !!a.pinned);
+        const list = target.filter((x) => x.id !== id),
+          at = beforeId ? list.findIndex((x) => x.id === beforeId) : -1;
+        list.splice(at < 0 ? list.length : at, 0, s);
+        if (moved) {
+          stopSound(id);
+          s.board_id = boardId;
+          s.dirty = true;
+        }
+        for (let i = 0; i < list.length; i++) {
+          const x = list[i];
+          if (x.sort_order === i && !(x === s && moved)) continue;
+          x.sort_order = i;
+          await touch("sounds", x);
+        }
+        await reload();
+        if (moved)
+          toast(
+            `Moved “${s.name}” to ${boards.find((b) => b.id === boardId)?.name || "board"}`,
+          );
+      }
+      $("main").addEventListener("dragover", (e) => {
+        if (!dragId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const loc = locate(e.clientX, e.clientY);
+        dropPos = loc;
+        clearDrop();
+        if (loc.ref)
+          loc.ref.classList.add(loc.after ? "drop-after" : "drop-before");
+      });
+      $("main").addEventListener("drop", (e) => {
+        if (!dragId) return;
+        e.preventDefault();
+        const id = dragId,
+          pos = dropPos;
+        endDrag();
+        if (pos) movePad(id, activeBoard, pos.before);
+      });
+
+      /* ---------- edit / trim modal ---------- */
+      let tm = null;
+      const parseT = (v) => {
+        v = String(v).trim();
+        if (!v) return NaN;
+        if (v.includes(":")) {
+          const [m, s] = v.split(":");
+          return +m * 60 + +s;
+        }
+        return +v;
+      };
+      function syncEdit() {
+        if (!tm || !tm.dur) return;
+        const t = tm.el.currentTime,
+          d = tm.dur;
+        $("tmSel").style.cssText =
+          `left:${(tm.start / d) * 100}%;width:${((tm.end - tm.start) / d) * 100}%`;
+        $("tmHead").style.left = (t / d) * 100 + "%";
+        $("tmSeek").value = t;
+        $("tmPos").textContent = `${fmt(t)} / ${fmt(d)}`;
+        if (document.activeElement !== $("tmStart"))
+          $("tmStart").value = fmt(tm.start);
+        if (document.activeElement !== $("tmEnd"))
+          $("tmEnd").value = fmt(tm.end);
+      }
+      function editTick() {
+        if (!tm) return;
+        const el = tm.el;
+        if (!el.paused && el.currentTime >= tm.end) {
+          el.pause();
+          el.currentTime = tm.start;
+        }
+        syncEdit();
+        if (!el.paused) tm.raf = requestAnimationFrame(editTick);
+      }
+      function setEdit(which, v, seek = true) {
+        if (!tm || isNaN(v)) return syncEdit();
+        if (which === "start") {
+          tm.start = clamp(v, 0, tm.end - 0.05);
+          if (seek) tm.el.currentTime = tm.start;
+        } else {
+          tm.end = clamp(v, tm.start + 0.05, tm.dur);
+          if (seek) tm.el.currentTime = Math.max(tm.start, tm.end - 0.3);
+        }
+        syncEdit();
+      }
+      function openEdit(s) {
+        closeEdit();
+        stopSound(s.id);
+        const url = urls.get(s.storage_path);
+        if (!url) return toast("Still loading that sound…");
+        const vid = isVideo(s),
+          el = document.createElement(vid ? "video" : "audio"),
+          t = getTrim(s);
+        el.preload = "auto";
+        el.playsInline = true;
+        el.src = url;
+        tm = {
+          id: s.id,
+          el,
+          dur: 0,
+          start: t.start || 0,
+          end: t.end ?? null,
+          raf: 0,
+        };
+        $("tmMedia").innerHTML = "";
+        if (vid) {
+          el.className = "tmvid";
+          $("tmMedia").append(el);
+        }
+        $("tmName").value = s.name;
+        el.onloadedmetadata = () => {
+          tm.dur = el.duration;
+          if (tm.end == null || tm.end > tm.dur) tm.end = tm.dur;
+          $("tmSeek").max = tm.dur;
+          el.currentTime = tm.start;
+          syncEdit();
+        };
+        el.onplay = () => {
+          $("tmPlay").textContent = "⏸ Pause";
+          cancelAnimationFrame(tm.raf);
+          editTick();
+        };
+        el.onpause = () => {
+          $("tmPlay").textContent = "▶ Preview";
+          syncEdit();
+        };
+        $("modal").classList.add("open");
+      }
+      function closeEdit() {
+        if (!tm) return;
+        cancelAnimationFrame(tm.raf);
+        tm.el.pause();
+        tm.el.removeAttribute("src");
+        tm.el.load();
+        tm = null;
+        $("modal").classList.remove("open");
+      }
+      async function saveTrim(s, start, end) {
+        s.start_sec = start;
+        s.end_sec = end;
+        await touch("sounds", s);
+      }
+      $("tmPlay").onclick = () => {
+        if (!tm) return;
+        const el = tm.el;
+        if (!el.paused) return el.pause();
+        if (el.currentTime < tm.start || el.currentTime >= tm.end - 0.05)
+          el.currentTime = tm.start;
+        el.volume = vol();
+        el.play();
+      };
+      $("tmSeek").oninput = (e) => {
+        if (tm) {
+          tm.el.currentTime = +e.target.value;
+          syncEdit();
+        }
+      };
+      $("tmStart").onchange = (e) => setEdit("start", parseT(e.target.value));
+      $("tmEnd").onchange = (e) => setEdit("end", parseT(e.target.value));
+      $("tmStart").onblur = $("tmEnd").onblur = syncEdit;
+      $("tmSetStart").onclick = () =>
+        tm && setEdit("start", tm.el.currentTime, false);
+      $("tmSetEnd").onclick = () =>
+        tm && setEdit("end", tm.el.currentTime, false);
+      $("tmReset").onclick = () => {
+        if (tm) {
+          tm.start = 0;
+          tm.end = tm.dur;
+          tm.el.currentTime = 0;
+          syncEdit();
+        }
+      };
+      $("tmCancel").onclick = closeEdit;
+      $("modal").addEventListener(
+        "mousedown",
+        (e) => e.target.id === "modal" && closeEdit(),
+      );
+      $("tmSave").onclick = async () => {
+        if (!tm) return;
+        const s = byId(tm.id);
+        if (!s) return closeEdit();
+        const start = tm.start <= 0.01 ? null : +tm.start.toFixed(2),
+          end = tm.end >= tm.dur - 0.05 ? null : +tm.end.toFixed(2),
+          name = $("tmName").value.trim();
+        closeEdit();
+        if (name) s.name = name;
+        await saveTrim(s, start, end);
+        await reload();
+        const m = media.get(s.id);
+        if (m) m.el.currentTime = rangeOf(byId(s.id) || s).start;
+      };
+
+      /* ---------- import ---------- */
+      async function addFiles(files) {
+        files = [...files].filter(
+          (f) =>
+            f.type.startsWith("audio/") ||
+            f.type === "video/mp4" ||
+            /\.(mp3|wav|ogg|m4a|flac|aac|mp4)$/i.test(f.name),
+        );
+        if (!files.length) return toast("No audio or MP4 files found.");
+        let order = Math.max(-1, ...current().map((s) => s.sort_order)) + 1,
+          n = 0;
+        for (const f of files) {
+          toast(`Importing ${++n}/${files.length}: ${f.name}`, 0);
+          const id = crypto.randomUUID(),
+            ext = (f.name.split(".").pop() || "audio")
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "");
+          try {
+            await touch("sounds", {
+              id,
+              board_id: activeBoard,
+              name: f.name.replace(/\.[^.]+$/, ""),
+              type: ext.toUpperCase(),
+              storage_path: `${id}.${ext}`,
+              sort_order: order++,
+              created_at: Date.now(),
+              blob: new Blob([f], {
+                type: f.type || (ext === "mp4" ? "video/mp4" : "audio/mpeg"),
+              }),
+            });
+          } catch (e) {
+            console.error(e);
+            return toast(
+              "Could not save (storage full or blocked): " + (e.message || e),
+              6000,
+            );
+          }
+        }
+        await reload();
+        toast(`Imported ${files.length} sound${files.length > 1 ? "s" : ""}`);
+      }
+      $("importBtn").onclick = () => $("file").click();
+      $("file").onchange = (e) => {
+        addFiles(e.target.files);
+        e.target.value = "";
+      };
+      const main = $("main");
+      ["dragover", "dragenter"].forEach((t) =>
+        main.addEventListener(t, (e) => {
+          if (dragId) return;
+          e.preventDefault();
+          main.classList.add("drag");
+        }),
+      );
+      ["dragleave", "drop"].forEach((t) =>
+        main.addEventListener(t, (e) => {
+          if (dragId) return;
+          e.preventDefault();
+          main.classList.remove("drag");
+        }),
+      );
+      main.addEventListener("drop", (e) => {
+        if (!dragId && e.dataTransfer.files.length)
+          addFiles(e.dataTransfer.files);
+      });
+
+      /* ---------- controls ---------- */
+      $("vol").oninput = () => media.forEach((a) => (a.el.volume = vol()));
+      $("monoBtn").classList.toggle("on", mono);
+      $("monoBtn").onclick = () => {
+        mono = !mono;
+        localStorage.setItem("padboard_mono", mono ? "1" : "0");
+        $("monoBtn").classList.toggle("on", mono);
+      };
+      $("loopBtn").classList.toggle("on", loop);
+      $("loopBtn").onclick = () => {
+        loop = !loop;
+        localStorage.setItem("padboard_loop", loop ? "1" : "0");
+        $("loopBtn").classList.toggle("on", loop);
+      };
+      $("stopBtn").onclick = () => stopAll();
+      addEventListener("keydown", (e) => {
+        if (e.key === "Escape") return closeEdit();
+        if (
+          tm ||
+          e.target.closest("input,[contenteditable=true]") ||
+          e.ctrlKey ||
+          e.metaKey ||
+          e.altKey
+        )
+          return;
+        if (e.key === " " && e.target === document.body) {
+          e.preventDefault();
+          return stopAll();
+        }
+        const i = e.key === "0" ? 9 : "123456789".indexOf(e.key),
+          s = current()[i];
+        if (i >= 0 && s) {
+          e.preventDefault();
+          fire(s);
+        }
+      });
+
+      /* ---------- rename ---------- */
+      async function renameBoard(b) {
+        const v = (prompt("Rename soundboard:", b.name) || "").trim();
+        if (v && v !== b.name) {
+          b.name = v;
+          await touch("boards", b);
+          reload();
+        }
+      }
+      $("renameBtn").onclick = () => {
+        const b = boards.find((x) => x.id === activeBoard);
+        if (b) renameBoard(b);
+      };
+
+      /* ---------- optional sync via Supabase (the app works fully without it / offline) ---------- */
+      const SUPABASE_URL = "https://txtgeumrmzktclxowkzg.supabase.co",
+        SUPABASE_ANON_KEY = "sb_publishable_Bd1tI_CvlSH6o2gTZ8XKhw_9ltX0k3D",
+        BUCKET = "sounds";
+      /* OPTIONAL — to sync trim points too, run once in Supabase → SQL editor:
+   alter table public.sounds add column if not exists start_sec double precision, add column if not exists end_sec double precision, add column if not exists pinned boolean default false; */
+      const dlFail = new Map();
+      let sb = null,
+        group = JSON.parse(localStorage.getItem("padboard_sync") || "null"),
+        channel = null,
+        syncing = false,
+        again = false,
+        timer = 0,
+        status = "";
+      const mime = (ext) =>
+        ({
+          mp4: "video/mp4",
+          mp3: "audio/mpeg",
+          wav: "audio/wav",
+          ogg: "audio/ogg",
+          m4a: "audio/mp4",
+          flac: "audio/flac",
+          aac: "audio/aac",
+        })[ext] || "audio/mpeg";
+      const loadJs = (src) =>
+        new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.onload = res;
+          s.onerror = () => rej(new Error("no connection"));
+          document.head.append(s);
+        });
+      async function getSb() {
+        if (!sb) {
+          if (!window.supabase)
+            await loadJs(
+              "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js",
+            );
+          sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+        const {
+          data: { session },
+        } = await sb.auth.getSession();
+        if (!session) {
+          const { error } = await sb.auth.signInAnonymously();
+          if (error)
+            throw new Error(
+              error.message +
+                " — enable Anonymous sign-ins in Supabase → Authentication.",
+            );
+        }
+        return sb;
+      }
+      const tombs = () => {
+        try {
+          return (
+            JSON.parse(localStorage.getItem("padboard_tombs")) || {
+              boards: [],
+              sounds: [],
+            }
+          );
+        } catch {
+          return { boards: [], sounds: [] };
+        }
+      };
+      const saveTombs = (t) =>
+        localStorage.setItem("padboard_tombs", JSON.stringify(t));
+      function tomb(kind, rec) {
+        if (!rec.synced) return;
+        const t = tombs();
+        t[kind].push({ id: rec.id, path: rec.storage_path });
+        saveTombs(t);
+        scheduleSync();
+      }
+      async function touch(store, rec) {
+        rec.dirty = true;
+        await dbPut(store, rec);
+        scheduleSync();
+      }
+      function scheduleSync() {
+        clearTimeout(timer);
+        timer = setTimeout(sync, 700);
+      }
+
+      function renderSync() {
+        $("syncStat").innerHTML = !group
+          ? "Local only. Turn on sync to use these boards on your other devices."
+          : (!navigator.onLine
+              ? "Offline — changes sync when you are back online"
+              : status || "Sync on") +
+            `<br>Code: <span style="color:var(--amber)">${group.code}</span>`;
+        const b = $("syncBtns");
+        b.innerHTML = "";
+        const add = (t, f) => {
+          const x = document.createElement("button");
+          x.textContent = t;
+          x.onclick = f;
+          b.append(x);
+        };
+        if (!group) {
+          add("Create sync code", createSync);
+          add("Enter sync code", joinSync);
+        } else {
+          add("Sync now", sync);
+          add("Copy code", () =>
+            navigator.clipboard
+              ?.writeText(group.code)
+              .then(() => toast("Code copied")),
+          );
+          add("Turn off sync", stopSync);
+        }
+      }
+      async function startSync(g) {
+        group = { id: g.id, name: g.name, code: g.code };
+        localStorage.setItem("padboard_sync", JSON.stringify(group));
+        toast("Sync on");
+        subscribe();
+        await sync();
+      }
+      async function createSync() {
+        try {
+          toast("Setting up sync…", 0);
+          const c = await getSb(),
+            { data, error } = await c.rpc("create_group", {
+              p_name: "Padboard",
+            });
+          if (error) throw error;
+          await startSync(data);
+        } catch (e) {
+          toast("Could not turn on sync: " + (e.message || e), 5000);
+        }
+      }
+      async function joinSync() {
+        const code = (
+          prompt("Enter the sync code from your other device:") || ""
+        ).trim();
+        if (!code) return;
+        try {
+          const c = await getSb(),
+            { data, error } = await c.rpc("join_group_by_code", {
+              p_code: code,
+            });
+          if (error) throw error;
+          if (boards.length === 1 && !sounds.length && !boards[0].synced)
+            await dbDel("boards", boards[0].id); // drop the empty auto-made board
+          await startSync(data);
+        } catch (e) {
+          toast("Could not join: " + (e.message || e), 5000);
+        }
+      }
+      async function stopSync() {
+        if (!confirm("Turn off sync on this device? Your sounds stay here."))
+          return;
+        unsub();
+        group = null;
+        localStorage.removeItem("padboard_sync");
+        saveTombs({ boards: [], sounds: [] });
+        for (const s of ["boards", "sounds"])
+          for (const r of await dbAll(s)) {
+            r.synced = false;
+            r.uploaded = false;
+            r.dirty = true;
+            await dbPut(s, r);
+          }
+        renderSync();
+      }
+      async function subscribe() {
+        try {
+          const c = await getSb();
+          unsub();
+          const f = (t) => ({
+            event: "*",
+            schema: "public",
+            table: t,
+            filter: `group_id=eq.${group.id}`,
+          });
+          channel = c
+            .channel("g-" + group.id)
+            .on("postgres_changes", f("sounds"), scheduleSync)
+            .on("postgres_changes", f("boards"), scheduleSync)
+            .subscribe();
+        } catch {}
+      }
+      const unsub = () => {
+        if (channel && sb) sb.removeChannel(channel);
+        channel = null;
+      };
+      async function markClean(store, pushed) {
+        const cur = await tx(store, "readonly", (o) => o.get(pushed.id));
+        if (!cur) return;
+        const k = (x) =>
+          JSON.stringify(
+            store === "boards"
+              ? [x.name, x.sort_order]
+              : [
+                  x.name,
+                  x.board_id,
+                  x.sort_order,
+                  x.start_sec ?? null,
+                  x.end_sec ?? null,
+                  !!x.pinned,
+                ],
+          );
+        if (k(cur) === k(pushed)) cur.dirty = false; // edited again during upload? stay dirty
+        cur.synced = true;
+        if (store === "sounds") cur.uploaded = true;
+        await dbPut(store, cur);
+      }
+      async function dropSound(l) {
+        stopSound(l.id);
+        media.delete(l.id);
+        URL.revokeObjectURL(urls.get(l.storage_path));
+        urls.delete(l.storage_path);
+        await dbDel("sounds", l.id);
+      }
+
+      async function sync() {
+        if (!group || !navigator.onLine) return renderSync();
+        if (syncing) return (again = true);
+        syncing = true;
+        status = "Syncing…";
+        renderSync();
+        try {
+          const c = await getSb(),
+            gid = group.id,
+            get = (s, id) => tx(s, "readonly", (o) => o.get(id));
+          let changed = false,
+            failed = 0;
+          /* 1. push deletions made while offline */
+          const t = tombs();
+          for (const s of t.sounds) {
+            await c.storage.from(BUCKET).remove([`${gid}/${s.path}`]);
+            const { error } = await c.from("sounds").delete().eq("id", s.id);
+            if (error) throw error;
+          }
+          for (const b of t.boards) {
+            const { error } = await c.from("boards").delete().eq("id", b.id);
+            if (error) throw error;
+          }
+          const cur = tombs();
+          saveTombs({
+            boards: cur.boards.filter(
+              (x) => !t.boards.some((y) => y.id === x.id),
+            ),
+            sounds: cur.sounds.filter(
+              (x) => !t.sounds.some((y) => y.id === x.id),
+            ),
+          });
+          /* 2. pull remote changes */
+          const [rb, rs] = await Promise.all([
+            c.from("boards").select("*").eq("group_id", gid),
+            c.from("sounds").select("*").eq("group_id", gid),
+          ]);
+          if (rb.error || rs.error) throw rb.error || rs.error;
+          const rbIds = new Set(rb.data.map((r) => r.id)),
+            rsIds = new Set(rs.data.map((r) => r.id));
+          for (const r of rb.data) {
+            const l = await get("boards", r.id),
+              n = { name: r.name, sort_order: r.sort_order || 0 };
+            if (!l) {
+              await dbPut("boards", {
+                id: r.id,
+                ...n,
+                created_at: Date.parse(r.created_at) || Date.now(),
+                synced: true,
+              });
+              changed = true;
+            } else if (
+              !l.dirty &&
+              (l.name !== n.name || l.sort_order !== n.sort_order)
+            ) {
+              await dbPut("boards", Object.assign(l, n, { synced: true }));
+              changed = true;
+            }
+          }
+          for (const r of rs.data) {
+            const l = await get("sounds", r.id);
+            if (!l) continue;
+            const n = {
+              name: r.name,
+              board_id: r.board_id,
+              sort_order: r.sort_order || 0,
+            };
+            if ("start_sec" in r) {
+              n.start_sec = r.start_sec;
+              n.end_sec = r.end_sec;
+            }
+            if ("pinned" in r) n.pinned = !!r.pinned;
+            if (
+              !l.dirty &&
+              Object.keys(n).some(
+                (k) => l[k] !== n[k] && !(l[k] == null && n[k] == null),
+              )
+            ) {
+              await dbPut("sounds", Object.assign(l, n, { synced: true }));
+              changed = true;
+            }
+          }
+          for (const l of await dbAll("sounds"))
+            if (l.synced && !l.dirty && !rsIds.has(l.id)) {
+              await dropSound(l);
+              changed = true;
+            } // deleted on another device
+          for (const l of await dbAll("boards"))
+            if (l.synced && !l.dirty && !rbIds.has(l.id)) {
+              await dbDel("boards", l.id);
+              changed = true;
+            }
+          if (changed) await reload();
+          for (const r of rs.data) {
+            // download new sounds so they work offline
+            if (await get("sounds", r.id)) continue;
+            if (Date.now() - (dlFail.get(r.id) || 0) < 300000) {
+              failed++;
+              continue;
+            } // failed a moment ago: retry in a few minutes, don't block everything else
+            try {
+              const base = r.storage_path.split("/").pop(),
+                ext = base.split(".").pop().toLowerCase();
+              const { data: u, error: ue } = await c.storage
+                .from(BUCKET)
+                .createSignedUrl(r.storage_path, 600);
+              if (ue || !u) throw ue || new Error("no download link");
+              const res = await fetch(u.signedUrl);
+              if (!res.ok)
+                throw new Error("download failed (" + res.status + ")");
+              let blob = await res.blob();
+              if (!blob.type || blob.type === "application/octet-stream")
+                blob = new Blob([blob], { type: mime(ext) });
+              await dbPut("sounds", {
+                id: r.id,
+                board_id: r.board_id,
+                name: r.name,
+                type: r.type || ext.toUpperCase(),
+                storage_path: base,
+                sort_order: r.sort_order || 0,
+                created_at: Date.parse(r.created_at) || Date.now(),
+                start_sec: r.start_sec ?? null,
+                end_sec: r.end_sec ?? null,
+                pinned: !!r.pinned,
+                blob,
+                synced: true,
+                uploaded: true,
+              });
+              dlFail.delete(r.id);
+              await reload();
+            } catch (e) {
+              console.warn("Could not download", r.name, e);
+              dlFail.set(r.id, Date.now());
+              failed++;
+            }
+          }
+          /* 3. push local changes (boards first: sounds reference them) */
+          for (const l of await dbAll("boards"))
+            if (l.dirty || !l.synced) {
+              const { error } = await c
+                .from("boards")
+                .upsert({
+                  id: l.id,
+                  group_id: gid,
+                  name: l.name,
+                  sort_order: l.sort_order || 0,
+                });
+              if (error) throw error;
+              await markClean("boards", l);
+            }
+          for (const l of await dbAll("sounds"))
+            if (l.dirty || !l.synced) {
+              const ext = l.storage_path.split(".").pop().toLowerCase();
+              if (!l.uploaded) {
+                const { error } = await c.storage
+                  .from(BUCKET)
+                  .upload(`${gid}/${l.storage_path}`, l.blob, {
+                    contentType: l.blob.type || mime(ext),
+                  });
+                if (error && !/exist|duplicate/i.test(error.message))
+                  throw error;
+              }
+              const row = {
+                id: l.id,
+                group_id: gid,
+                board_id: l.board_id,
+                name: l.name,
+                type: l.type,
+                storage_path: `${gid}/${l.storage_path}`,
+                sort_order: l.sort_order || 0,
+                start_sec: l.start_sec ?? null,
+                end_sec: l.end_sec ?? null,
+                pinned: !!l.pinned,
+              };
+              let { error } = await c.from("sounds").upsert(row);
+              if (
+                error &&
+                /start_sec|end_sec|pinned|column/i.test(error.message)
+              ) {
+                delete row.start_sec;
+                delete row.end_sec;
+                delete row.pinned;
+                ({ error } = await c.from("sounds").upsert(row));
+              }
+              if (error) throw error;
+              await markClean("sounds", l);
+            }
+          status = failed
+            ? `Synced — ${failed} sound${failed > 1 ? "s" : ""} couldn’t download yet (will retry)`
+            : "Synced ✓";
+        } catch (e) {
+          console.error(e);
+          status = "Sync paused: " + (e.message || e);
+        }
+        syncing = false;
+        renderSync();
+        if (again) {
+          again = false;
+          scheduleSync();
+        }
+      }
+      addEventListener("online", () => {
+        if (group) {
+          if (!channel) subscribe();
+          sync();
+        }
+        renderSync();
+      });
+      addEventListener("offline", renderSync);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && group) sync();
+      });
+      setInterval(() => group && sync(), 30000);
+
+      /* ---------- boot ---------- */
+      if ("serviceWorker" in navigator && location.protocol.startsWith("http"))
+        addEventListener("load", () =>
+          navigator.serviceWorker.register("sw.js").catch(() => {}),
+        ); // lets the page itself open offline
+      navigator.storage?.persist?.(); // ask the browser not to evict saved sounds
+      reload()
+        .then(() => {
+          renderSync();
+          if (group) {
+            subscribe();
+            sync();
+          }
+        })
+        .catch((e) => toast("Local storage unavailable: " + e.message, 8000));
+    </script>
+  </body>
+</html>
